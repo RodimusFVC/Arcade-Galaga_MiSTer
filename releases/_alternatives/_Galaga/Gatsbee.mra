@@ -1,5 +1,5 @@
 <misterromdescription>
-    <name>Galaga (Namco)</name>
+    <name>Gatsbee</name>
     <region>World</region>
     <homebrew>no</homebrew>
     <bootleg>no</bootleg>
@@ -7,11 +7,11 @@
     <alternative></alternative>
     <platform></platform>
     <series>Galaxian</series>
-    <year>1981</year>
-    <manufacturer>Namco</manufacturer>
+    <year>1984</year>
+    <manufacturer>hack (Uchida)</manufacturer>
     <category>Shooter</category>
 
-    <setname>galagao</setname>
+    <setname>gatsbee</setname>
     <parent>galaga</parent>
     <mameversion>0289</mameversion>
     <rbf>Galaga</rbf>
@@ -22,7 +22,7 @@
     <flip>yes</flip>
 
     <players>2 (alternating)</players>
-    <joystick>2-way</joystick>
+    <joystick>8-way</joystick>
     <special_controls></special_controls>
     <num_buttons>1</num_buttons>
     <buttons names="Fire,Not Used,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Rack Test" default="A,Y,B,X,Select,Start,R,L"/>
@@ -40,20 +40,21 @@
     </switches>
 
     <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
-    <rom index="0" md5="none" zip="galagao.zip|galaga.zip|namco51.zip|namco54.zip">
-        <part crc="a3a0f743" name="gg1-1.3p"/>
-        <part crc="43bb0d5c" name="gg1-2.3m"/>
-        <part crc="753ce503" name="gg1-3.2m"/>
-        <part crc="83874442" name="gg1-4.2l"/>
+    <rom index="0" md5="none" zip="gatsbee.zip|galaga.zip|namco51.zip|namco54.zip">
+        <part crc="9fb8e28b" name="1.4b"/>
+        <part crc="bf6cb840" name="2.4c"/>
+        <part crc="3604e2dd" name="3.4d"/>
+        <part crc="bf9f613b" name="4.4e"/>
         <part repeat="0x4000">00</part>
         <part crc="3102fccd" name="gg1-5.3f"/>
         <part repeat="0x3000">00</part>
         <part crc="8995088d" name="gg1-7.2c"/>
         <part repeat="0x3000">00</part>
-        <part crc="58b2f47c" name="gg1-9.4l"/>
-        <part repeat="0x3000">00</part>
-        <part crc="ad447c80" name="gg1-11.4d"/>
-        <part crc="dd6f1afc" name="gg1-10.4f"/>
+        <part crc="b324f650" name="8.5r"/>
+        <part crc="001b70bc" name="gallag.6"/>
+        <part repeat="0x1000">00</part>
+        <part crc="22e339d5" name="9.6a"/>
+        <part crc="60dcf940" name="10.7a"/>
         <part repeat="0xC000">00</part>
         <part crc="54603c6b" name="prom-5.5n"/>
         <part crc="59b6edab" name="prom-4.2n"/>
@@ -69,8 +70,8 @@
     <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
     <rom index="1">
         <part>
-            00 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-            00 04 00 03 00 0C 00 0B 05 0D 13 14 11 12 16 00
+            02 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            02 04 01 03 09 0C 0A 0B 05 0D 13 14 11 12 16 00
             00 00 00 00 00 24 00 00 00 00 00 00 00 00 00 00
         </part>
     </rom>
@@ -78,14 +79,14 @@
     <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
     <rom index="3" md5="none">
         <part>
-            29 CF AD E4 00 FF 00 02 00 02 00 01 11 11 00 00
-            00 00 8A 20 00 2D 00 18
+            00 88 1D BC 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 8A 20 00 2D 00 0E
             00 00 83 ED 00 06 00 24
         </part>
     </rom>
     <rom index="4"></rom>
     <nvram index="4" size="51"></nvram>
 
-    <remark>Galaga (Namco)</remark>
+    <remark>Gatsbee (Hack (Uchida))</remark>
     <mratimestamp>20261003000000</mratimestamp>
 </misterromdescription>

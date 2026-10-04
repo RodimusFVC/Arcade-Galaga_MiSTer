@@ -80,7 +80,7 @@ assign BUTTONS = 0;
 ///////////////////////////////////////////////////
 
 // MRA index 1:
-//   byte 0      game (see rtl/galaga_board.sv)
+//   byte 0      board variant (see rtl/galaga_board.sv)
 //   byte 1      flags: [0] 4-way joystick, [2] coins are 2-frame pulses, [4] vertical, [7] vertical is ROT90
 //   bytes 16-47 input map, one byte per port bit (IN0, IN1, DSWA, DSWB; bit 0 first): control id, 0 = none
 // DIP switch bytes 0-3 hold the idle level of every bit of IN0, IN1, DSWA, DSWB; a pressed control inverts its bit
@@ -120,6 +120,9 @@ localparam CONF_STR = {
 	"P2O[40],Pause when OSD is open,On,Off;",
 	"P2O[41],Dim video after 10s,On,Off;",
 	"-;",
+	"P3,High Score Options;",
+	"P3O[42],Autosave Hiscores,Off,On;",
+	"-;",
 	"DIP;",
 	"-;",
 	"R0,Reset;",
@@ -157,7 +160,6 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.ps2_key(ps2_key)
 );
 
-assign ioctl_din = 8'h00;
 
 ////////////////////   CLOCKS   ///////////////////
 
@@ -310,7 +312,7 @@ pause #(8,8,8,49) pause
 	.*,
 	.clk_sys(CLK_49M),
 	.user_button(m_pause),
-	.pause_request(1'b0),
+	.pause_request(hs_pause),
 	.options(~status[41:40])
 );
 
@@ -348,11 +350,17 @@ galaga_board board
 	.reset(reset),
 	.pause(pause_cpu),
 	.crt_flip(status[36]),
+	.variant(game_var),
 
 	.in0(in_port[0]),
 	.in1(in_port[1]),
 	.dswa(in_port[2]),
 	.dswb(in_port[3]),
+
+	.earom_addr(6'd0),
+	.earom_din(8'd0),
+	.earom_we(1'b0),
+	.earom_dout(),
 
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_dout),
@@ -367,7 +375,44 @@ galaga_board board
 	.video_hblank(hblank),
 	.video_vblank(vblank),
 
-	.audio(audio)
+	.audio(audio),
+
+	.hs_access(hs_access_read | hs_access_write),
+	.hs_address(hs_address),
+	.hs_data_in(hs_data_in),
+	.hs_data_out(hs_data_out),
+	.hs_write(hs_write_enable)
+);
+
+// Hiscore: config = MRA index 3, dump = index 4; the board's bus is handed to it while the CPUs are paused
+wire [15:0] hs_address;
+wire  [7:0] hs_data_in;
+wire  [7:0] hs_data_out;
+wire        hs_write_enable;
+wire        hs_access_read;
+wire        hs_access_write;
+wire        hs_pause;
+wire        hs_configured;
+
+hiscore #(
+	.HS_ADDRESSWIDTH(16),
+	.CFG_ADDRESSWIDTH(4),
+	.CFG_LENGTHWIDTH(2)
+) hi (
+	.*,
+	.clk(CLK_49M),
+	.paused(pause_cpu),
+	.autosave(status[42]),
+	.ram_address(hs_address),
+	.data_from_ram(hs_data_out),
+	.data_to_ram(hs_data_in),
+	.data_from_hps(ioctl_dout),
+	.data_to_hps(ioctl_din),
+	.ram_write(hs_write_enable),
+	.ram_intent_read(hs_access_read),
+	.ram_intent_write(hs_access_write),
+	.pause_cpu(hs_pause),
+	.configured(hs_configured)
 );
 
 endmodule

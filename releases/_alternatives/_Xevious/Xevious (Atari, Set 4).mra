@@ -1,0 +1,93 @@
+<misterromdescription>
+    <name>Xevious (Atari, Set 4)</name>
+    <region>World</region>
+    <homebrew>no</homebrew>
+    <bootleg>no</bootleg>
+    <version></version>
+    <alternative></alternative>
+    <platform></platform>
+    <series>Xevious</series>
+    <year>1983</year>
+    <manufacturer>Namco (Atari license)</manufacturer>
+    <category>Shooter</category>
+
+    <setname>xeviousd</setname>
+    <parent>xevious</parent>
+    <mameversion>0289</mameversion>
+    <rbf>Galaga</rbf>
+    <about></about>
+
+    <resolution>15kHz</resolution>
+    <rotation>vertical (cw)</rotation>
+    <flip>yes</flip>
+
+    <players>2 (alternating)</players>
+    <joystick>8-way</joystick>
+    <special_controls></special_controls>
+    <num_buttons>2</num_buttons>
+    <buttons names="Fire,Button 2,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,Y,B,X,Select,Start,R,L"/>
+
+    <switches default="FF,FF,FF,FF">
+        <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
+        <dip name="Coin A" bits="16,17" ids="2C/1C,1C/1C,2C/3C,1C/2C" values="1,3,0,2"/>
+        <dip name="Bonus Life" bits="18,20" ids="10K; 40K; Every 40K,10K; 50K; Every 50K,20K; 50K; Every 50K,20K; 60K; Every 60K,20K; 70K; Every 70K,20K; 80K; Every 80K,20K and 60K Only,None" values="6,5,4,7,3,2,1,0"/>
+        <dip name="Lives" bits="21,22" ids="1,2,3,5" values="2,1,3,0"/>
+        <dip name="Cabinet" bits="23" ids="Upright,Cocktail" values="1,0"/>
+        <dip name="Flags Award Bonus Life" bits="25" ids="No,Yes"/>
+        <dip name="Difficulty" bits="29,30" ids="Easy,Normal,Hard,Hardest" values="2,3,1,0"/>
+        <dip name="Coin B" bits="26,27" ids="1C/1C,1C/2C,1C/3C,1C/6C" values="3,2,1,0"/>
+        <dip name="Copyright" bits="31" ids="Namco,Atari/Namco"/>
+    </switches>
+
+    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <rom index="0" md5="none" zip="xeviousd.zip|xevious.zip|namco50.zip|namco51.zip|namco54.zip">
+        <part crc="cf690308" name="1983_atari_8309_136018_218.1m"/>
+        <part crc="408c4b64" name="1983_atari_8307_136018_219.1l"/>
+        <part repeat="0x4000">00</part>
+        <part crc="14d8fa03" name="1983_atari_8306_136018_120.4c"/>
+        <part repeat="0x2000">00</part>
+        <part crc="dd35cf1c" name="1983_atari_8306_136018_127.2c"/>
+        <part repeat="0x3000">00</part>
+        <part crc="088c8b26" name="1983_atari_8307_136018_104.3b"/>
+        <part repeat="0x3000">00</part>
+        <part crc="de60ba25" name="1983_atari_8307_136018_105.3c"/>
+        <part crc="535cdbbc" name="1983_atari_8307_136018_106.3d"/>
+        <part repeat="0x2000">00</part>
+        <part crc="dc2c0ecb" name="1983_atari_8307_136018_107.4m"/>
+        <part crc="dfb587ce" name="1983_atari_8307_136018_109.4p"/>
+        <part crc="605ca889" name="1983_atari_8307_136018_108.4n"/>
+        <part crc="02417d19" name="1983_atari_8307_136018_110.4r"/>
+        <part repeat="0x2000">00</part>
+        <part repeat="0x1000">00</part>
+        <part crc="5cc2727f" name="1983_atari_136018_115.6a"/>
+        <part crc="5c8796cc" name="1983_atari_136018_116.6d"/>
+        <part crc="3cb60975" name="1983_atari_136018_117.6e"/>
+        <part crc="22d98032" name="1983_atari_136018_114.4h"/>
+        <part crc="3a7599f0" name="1983_atari_136018_113.4f"/>
+        <part crc="fd8b9d91" name="1983_atari_136018_111.3l"/>
+        <part crc="bf906d82" name="1983_atari_136018_112.3m"/>
+        <part repeat="0x500">00</part>
+        <part crc="550f06bc" name="1983_atari_136018_129.8m"/>
+        <part repeat="0xF00">00</part>
+        <part crc="57ed9879" name="1983_atari_8307_136018_101.2a"/>
+        <part crc="ae3ba9e5" name="1983_atari_8307_136018_102.2b"/>
+        <part crc="31e244dd" name="1983_atari_8307_136018_103.2c"/>
+        <part repeat="0x4000">00</part>
+        <part crc="a0acbaf7" name="50xx.bin"/>
+        <part crc="c2f57ef8" name="51xx.bin"/>
+        <part repeat="0x800">00</part>
+        <part crc="ee7357e0" name="54xx.bin"/>
+    </rom>
+
+    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <rom index="1">
+        <part>
+            05 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 04 02 03 09 0C 0A 0B 05 0D 13 14 11 12 16 00
+            00 00 00 00 00 00 00 00 06 00 00 00 0E 00 00 00
+        </part>
+    </rom>
+
+    <remark>Xevious (Atari, Set 4) (Namco (Atari License))</remark>
+    <mratimestamp>20261003000000</mratimestamp>
+</misterromdescription>

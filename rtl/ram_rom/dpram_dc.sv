@@ -8,11 +8,11 @@
 //============================================================================
 
 module dpram_dc #(
-    parameter string init_file     = " ",
-    parameter int    widthad_a     = 8,
-    parameter int    width_a       = 8,
-    parameter string outdata_reg_a = "UNREGISTERED",
-    parameter string outdata_reg_b = "UNREGISTERED"     // unused: both ports follow outdata_reg_a, as in the VHDL
+    parameter init_file     = " ",
+    parameter widthad_a     = 8,
+    parameter width_a       = 8,
+    parameter outdata_reg_a = "UNREGISTERED",
+    parameter outdata_reg_b = "UNREGISTERED"     // unused: both ports follow outdata_reg_a, as in the VHDL
 )
 (
     input  [widthad_a-1:0] address_a,

@@ -4,18 +4,20 @@
 //
 //  Per MAME namco06.cpp. Control register:
 //    [3:0] chip select mask, [4] 1 = read / 0 = write, [7:5] timer divider
-//    (0 = stopped). While running, the timer raises each selected chip's
-//    select (its IRQ) and the CPU's NMI every 2^ctrl[7:5] base ticks; the
-//    first pulse after entering read mode is suppressed.
+//    (0 = stopped). While running, the timer toggles every 2^(ctrl[7:5]-1)
+//    base ticks, raising each selected chip's select (its IRQ) and the CPU's
+//    NMI on alternate edges; the first edge after a control write comes at
+//    the next base tick, and the first pulse after entering read mode is
+//    suppressed.
 //  Data reads AND together the selected chips' outputs; data writes go to
 //    every selected chip. Neither waits for the timer.
-//  Base tick: 48 kHz (clk / 1024). Control and data writes take effect one
+//  Base tick: clk / BASE_DIV. Control and data writes take effect one
 //    clock late, standing in for MAME's deferred (synchronized) writes.
 //
 //============================================================================
 `default_nettype none
 
-module namco_06xx
+module namco_06xx #(parameter BASE_DIV = 1024)   // clk / BASE_DIV = the 06xx clock (MASTER / 6 / 64 = 48 kHz)
 (
     input  wire        clk,        // 49.152 MHz
     input  wire        reset,
@@ -48,21 +50,23 @@ module namco_06xx
 
     reg  [7:0] ctrl;
     reg        read_stretch;
-    reg  [9:0] base_cnt;
+    reg [12:0] base_cnt;
     reg  [6:0] div_cnt;
     reg        timer_state;
+    reg        first_edge;
     reg  [3:0] chipsel_r;
     reg        rw0_r;
     reg        nmi_n_r;
 
     wire       wmode     = ~ctrl[4];
     wire       enabled   = |ctrl[7:5];
-    wire [6:0] div_limit = (7'd1 << (ctrl[7:5] - 3'd1)) - 7'd1;   // base ticks between timer toggles, minus 1
-    wire       base_ce   = (base_cnt == 10'd1023);
+    wire [6:0] div_limit = (7'd1 << (ctrl[7:5] - 3'd1)) - 7'd1;   // base ticks between timer edges, minus 1
+    localparam integer BASE_LAST = BASE_DIV - 1;
+    wire       base_ce   = (base_cnt == BASE_LAST[12:0]);
 
     always @(posedge clk) begin
-        if (reset) base_cnt <= 10'd0;
-        else       base_cnt <= base_ce ? 10'd0 : base_cnt + 10'd1;
+        if (reset) base_cnt <= 13'd0;
+        else       base_cnt <= base_ce ? 13'd0 : base_cnt + 13'd1;
     end
 
     always @(posedge clk) begin
@@ -71,16 +75,17 @@ module namco_06xx
             read_stretch <= 1'b0;
             div_cnt      <= 7'd0;
             timer_state  <= 1'b0;
+            first_edge   <= 1'b0;
             chipsel_r    <= 4'h0;
             rw0_r        <= 1'b0;
             nmi_n_r      <= 1'b1;
         end else if (ctrl_apply) begin
-            ctrl        <= ctrl_wdata_d;
-            div_cnt     <= 7'd0;                // timer restarts from phase 0
-            timer_state <= 1'b0;
+            ctrl       <= ctrl_wdata_d;
+            first_edge <= 1'b1;                 // next timer edge at the next base tick (MAME ctrl_w_sync)
             if (ctrl_wdata_d[7:5] == 3'b000) begin
-                chipsel_r <= 4'h0;              // stopped: selects and NMI released, R/W left as is
-                nmi_n_r   <= 1'b1;
+                timer_state <= 1'b0;            // stopped: selects and NMI released, R/W left as is
+                chipsel_r   <= 4'h0;
+                nmi_n_r     <= 1'b1;
             end else if (ctrl_wdata_d[4]) begin
                 nmi_n_r      <= 1'b1;           // read mode: suppress the first pulse
                 read_stretch <= 1'b1;
@@ -88,7 +93,8 @@ module namco_06xx
                 read_stretch <= 1'b0;
             end
         end else if (enabled && base_ce && !pause) begin
-            if (div_cnt == div_limit) begin
+            if (first_edge || div_cnt == div_limit) begin
+                first_edge   <= 1'b0;
                 div_cnt      <= 7'd0;
                 timer_state  <= ~timer_state;
                 read_stretch <= 1'b0;

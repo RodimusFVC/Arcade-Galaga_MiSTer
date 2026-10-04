@@ -75,6 +75,17 @@
         </part>
     </rom>
 
+    <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
+    <rom index="3" md5="none">
+        <part>
+            29 CF AD E4 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 8A 20 00 2D 00 18
+            00 00 83 ED 00 06 00 24
+        </part>
+    </rom>
+    <rom index="4"></rom>
+    <nvram index="4" size="51"></nvram>
+
     <remark>Galaga (Namco Rev. B)</remark>
     <mratimestamp>20261003000000</mratimestamp>
 </misterromdescription>

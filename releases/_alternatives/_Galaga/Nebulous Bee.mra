@@ -1,17 +1,17 @@
 <misterromdescription>
-    <name>Galaga (Namco)</name>
+    <name>Nebulous Bee</name>
     <region>World</region>
     <homebrew>no</homebrew>
-    <bootleg>no</bootleg>
+    <bootleg>yes</bootleg>
     <version></version>
     <alternative></alternative>
     <platform></platform>
     <series>Galaxian</series>
     <year>1981</year>
-    <manufacturer>Namco</manufacturer>
+    <manufacturer>bootleg</manufacturer>
     <category>Shooter</category>
 
-    <setname>galagao</setname>
+    <setname>nebulbee</setname>
     <parent>galaga</parent>
     <mameversion>0289</mameversion>
     <rbf>Galaga</rbf>
@@ -40,36 +40,37 @@
     </switches>
 
     <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
-    <rom index="0" md5="none" zip="galagao.zip|galaga.zip|namco51.zip|namco54.zip">
-        <part crc="a3a0f743" name="gg1-1.3p"/>
-        <part crc="43bb0d5c" name="gg1-2.3m"/>
-        <part crc="753ce503" name="gg1-3.2m"/>
-        <part crc="83874442" name="gg1-4.2l"/>
+    <rom index="0" md5="none" zip="nebulbee.zip|galaga.zip|namco51.zip">
+        <part crc="f405f2c4" name="nebulbee.01"/>
+        <part crc="31022b60" name="nebulbee.02"/>
+        <part crc="753ce503" name="gg1_3.2m"/>
+        <part crc="d76788a5" name="nebulbee.04"/>
         <part repeat="0x4000">00</part>
-        <part crc="3102fccd" name="gg1-5.3f"/>
+        <part crc="3102fccd" name="gg1-5"/>
         <part repeat="0x3000">00</part>
-        <part crc="8995088d" name="gg1-7.2c"/>
+        <part crc="8995088d" name="gg1-7"/>
         <part repeat="0x3000">00</part>
-        <part crc="58b2f47c" name="gg1-9.4l"/>
-        <part repeat="0x3000">00</part>
-        <part crc="ad447c80" name="gg1-11.4d"/>
-        <part crc="dd6f1afc" name="gg1-10.4f"/>
+        <part crc="58b2f47c" name="gg1_9.4l"/>
+        <part repeat="0x1000">00</part>
+        <part crc="035e300c" name="nebulbee.07"/>
+        <part repeat="0x1000">00</part>
+        <part crc="ad447c80" name="gg1_11.4d"/>
+        <part crc="dd6f1afc" name="gg1_10.4f"/>
         <part repeat="0xC000">00</part>
         <part crc="54603c6b" name="prom-5.5n"/>
-        <part crc="59b6edab" name="prom-4.2n"/>
-        <part crc="4a04bb6b" name="prom-3.1c"/>
-        <part repeat="0xDE0">00</part>
-        <part crc="7a2815b4" name="prom-1.1d"/>
+        <part crc="a547d33b" name="2n.bin"/>
+        <part crc="b6f585fb" name="1c.bin"/>
+        <part crc="8bd565f6" name="5c.bin"/>
+        <part repeat="0xCE0">00</part>
+        <part crc="86d92b24" name="1d.bin"/>
         <part repeat="0x9700">00</part>
         <part crc="c2f57ef8" name="51xx.bin"/>
-        <part repeat="0x800">00</part>
-        <part crc="ee7357e0" name="54xx.bin"/>
     </rom>
 
     <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
     <rom index="1">
         <part>
-            00 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
             00 04 00 03 00 0C 00 0B 05 0D 13 14 11 12 16 00
             00 00 00 00 00 24 00 00 00 00 00 00 00 00 00 00
         </part>
@@ -78,14 +79,14 @@
     <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
     <rom index="3" md5="none">
         <part>
-            29 CF AD E4 00 FF 00 02 00 02 00 01 11 11 00 00
-            00 00 8A 20 00 2D 00 18
+            00 88 1D BC 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 8A 20 00 2D 00 0E
             00 00 83 ED 00 06 00 24
         </part>
     </rom>
     <rom index="4"></rom>
     <nvram index="4" size="51"></nvram>
 
-    <remark>Galaga (Namco)</remark>
+    <remark>Nebulous Bee (Bootleg)</remark>
     <mratimestamp>20261003000000</mratimestamp>
 </misterromdescription>

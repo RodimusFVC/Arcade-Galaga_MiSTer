@@ -1,0 +1,108 @@
+<misterromdescription>
+    <name>Battles (Set 2)</name>
+    <region>World</region>
+    <homebrew>no</homebrew>
+    <bootleg>yes</bootleg>
+    <version></version>
+    <alternative></alternative>
+    <platform></platform>
+    <series>Xevious</series>
+    <year>1982</year>
+    <manufacturer>bootleg</manufacturer>
+    <category>Shooter</category>
+
+    <setname>battles2</setname>
+    <parent>xevious</parent>
+    <mameversion>0289</mameversion>
+    <rbf>Galaga</rbf>
+    <about></about>
+
+    <resolution>15kHz</resolution>
+    <rotation>vertical (cw)</rotation>
+    <flip>yes</flip>
+
+    <players>2 (alternating)</players>
+    <joystick>8-way</joystick>
+    <special_controls></special_controls>
+    <num_buttons>2</num_buttons>
+    <buttons names="Fire,Button 2,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,Y,B,X,Select,Start,R,L"/>
+
+    <switches default="FF,FF,FF,FF">
+        <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
+        <dip name="Coin A" bits="16,17" ids="2C/1C,1C/1C,2C/3C,1C/2C" values="1,3,0,2"/>
+        <dip name="Bonus Life" bits="18,20" ids="10K; 40K; Every 40K,10K; 50K; Every 50K,20K; 50K; Every 50K,20K; 60K; Every 60K,20K; 70K; Every 70K,20K; 80K; Every 80K,20K and 60K Only,None" values="6,5,4,7,3,2,1,0"/>
+        <dip name="Lives" bits="21,22" ids="1,2,3,5" values="2,1,3,0"/>
+        <dip name="Cabinet" bits="23" ids="Upright,Cocktail" values="1,0"/>
+        <dip name="Flags Award Bonus Life" bits="25" ids="No,Yes"/>
+        <dip name="Coin B" bits="26,27" ids="2C/1C,1C/1C,2C/3C,1C/2C" values="1,3,0,2"/>
+        <dip name="Difficulty" bits="29,30" ids="Easy,Normal,Hard,Hardest" values="2,3,1,0"/>
+        <dip name="Freeze" bits="31" ids="Off,On" values="1,0"/>
+    </switches>
+
+    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <rom index="0" md5="none" zip="battles2.zip|xevious.zip|namco50.zip|namco51.zip|namco54.zip">
+        <part crc="475d848a" name="bg1.h7"/>
+        <part crc="c66f2a87" name="bg2.h6"/>
+        <part crc="79754b7d" name="bg3.h5"/>
+        <part crc="3da1a0a2" name="bg4.h4"/>
+        <part repeat="0x4000">00</part>
+        <part crc="c85b703f" name="bg5.h2"/>
+        <part crc="e18cdaad" name="bg6.h1"/>
+        <part repeat="0x2000">00</part>
+        <part crc="dd35cf1c" name="bg7.h8"/>
+        <part repeat="0x3000">00</part>
+        <part crc="9571e400" name="bg17.f8"/>
+        <part repeat="0x3000">00</part>
+        <part crc="b43ea55d" name="bg18.f9"/>
+        <part crc="73603931" name="bg19.f11"/>
+        <part repeat="0x2000">00</part>
+        <part crc="dc2c0ecb" name="bg13.d4"/>
+        <part crc="dfb587ce" name="bg15.d7"/>
+        <part crc="605ca889" name="bg14.d6"/>
+        <part crc="44262c04" name="bg16.d8"/>
+        <part repeat="0x2000">00</part>
+        <part repeat="0x1000">00</part>
+        <part crc="5cc2727f" name="82s123_bg.h12"/>
+        <part crc="5c8796cc" name="82s123_bg.h13"/>
+        <part crc="3cb60975" name="82s123_bg.h14"/>
+        <part crc="22d98032" name="7643_bg.f14"/>
+        <part crc="3a7599f0" name="7643_bg.f13"/>
+        <part crc="fd8b9d91" name="7643_bg.c5"/>
+        <part crc="bf906d82" name="7643_bg.c6"/>
+        <part repeat="0x500">00</part>
+        <part crc="550f06bc" name="82s123_bg.f10"/>
+        <part repeat="0xF00">00</part>
+        <part crc="10baeebb" name="bg10.d1"/>
+        <part crc="ae3ba9e5" name="bg11.d2"/>
+        <part crc="51a4e83b" name="bg12.d3"/>
+        <part repeat="0x4000">00</part>
+        <part crc="a0acbaf7" name="50xx.bin"/>
+        <part crc="c2f57ef8" name="51xx.bin"/>
+        <part repeat="0x800">00</part>
+        <part crc="ee7357e0" name="54xx.bin"/>
+    </rom>
+
+    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <rom index="1">
+        <part>
+            06 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 04 02 03 09 0C 0A 0B 05 0D 13 14 11 12 16 00
+            00 00 00 00 00 00 00 00 06 00 00 00 0E 00 00 00
+        </part>
+    </rom>
+
+    <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
+    <rom index="3" md5="none">
+        <part>
+            04 E1 CB 34 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 85 10 00 4D 00 50
+            00 00 80 24 00 03 00 00
+            00 00 80 25 00 01 40 40
+        </part>
+    </rom>
+    <rom index="4"></rom>
+    <nvram index="4" size="81"></nvram>
+
+    <remark>Battles (Set 2) (Bootleg)</remark>
+    <mratimestamp>20261003000000</mratimestamp>
+</misterromdescription>

@@ -1,9 +1,9 @@
 //============================================================================
 //
-//  Galaga video: timing, 36 x 28 character layer, 64 sprites, palette
+//  Galaga / Dig Dug video: timing, 36 x 28 tile layers, 64 sprites, palette
 //
-//  Tile / sprite geometry and colour lookups per MAME galaga_v.cpp
-//  (Nicola Salmoria); counters after Dar's (darfpga) Galaga core.
+//  Tile / sprite geometry and colour lookups per MAME galaga_v.cpp and
+//  digdug.cpp (Nicola Salmoria); counters after Dar's (darfpga) Galaga core.
 //  Coordinates below are MAME's raw (unrotated) screen: x 0-287, y 0-223.
 //
 //============================================================================
@@ -13,9 +13,12 @@ module galaga_video
     input               clk,            // 49.152 MHz
     input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
     input               ce6,
-    input               flip,           // video latch Q7
+    input               dd,             // Dig Dug board
+    input         [7:0] vlatch,         // video LS259. Galaga: Q0-Q5 05xx, Q7 flip.
+                                        // Dig Dug: Q0-Q1 playfield select, Q2 text colour mode, Q3 playfield off,
+                                        // Q4-Q5 playfield colour bank, Q7 flip
+    input               gfx_bank,       // Gatsbee character bank
     input               crt_flip,       // OSD: mirror the picture both ways (stars keep raster order)
-    input         [5:0] star_ctl,       // video latch Q0-Q5: 05xx X speed, set select, STARCLR
 
     output reg    [8:0] hcnt = 9'h080,
     output reg    [8:0] vcnt = 9'd0,
@@ -34,6 +37,8 @@ module galaga_video
     input         [7:0] ioctl_dout,
     input               gfx1_wr,
     input               gfx2_wr,
+    input               gfx3_wr,
+    input               gfx4_wr,
     input               prom_wr,
 
     output reg    [7:0] red = 8'd0,
@@ -44,6 +49,13 @@ module galaga_video
     output reg          hsync = 1'b1,
     output reg          vsync = 1'b1
 );
+
+wire       flip     = vlatch[7];
+wire [5:0] star_ctl = dd ? 6'd0 : vlatch[5:0];
+wire [1:0] pf_sel   = vlatch[1:0];
+wire       tx_mode  = vlatch[2];
+wire       pf_off   = vlatch[3];
+wire [1:0] pf_bank  = vlatch[5:4];
 
 //------------------------------------------------------- Counters ------------------------------------------------------------//
 
@@ -62,30 +74,53 @@ wire [8:0] px = (hcnt >= 9'h0F0) ? hcnt - 9'h0F0 : hcnt + 9'd144;
 wire [8:0] py = vcnt - 9'd16;
 wire       h_vis = (hcnt >= 9'h0F0) || (hcnt < 9'h090);
 
-// picture position fetched for the current pixel
+// picture position for the sprite line buffer (OSD flip only) and for the tile layers (OSD flip XOR game flip:
+// MAME flips tilemaps with the screen, but sprites only toggle their flip bits)
 wire [8:0] fpx = crt_flip ? 9'd287 - px : px;
 wire [8:0] fpy = crt_flip ? 9'd223 - py : py;
+wire [8:0] tpx = (crt_flip ^ flip) ? 9'd287 - px : px;
+wire [8:0] tpy = (crt_flip ^ flip) ? 9'd223 - py : py;
 wire       v_vis = (vcnt >= 9'd16) && (vcnt < 9'd240);
 
 //------------------------------------------------------- ROMs / PROMs --------------------------------------------------------//
 
-reg  [11:0] chr_addr;
+// characters (gfx1, 8K: Galaga 4K 2bpp, Gatsbee 8K banked, Dig Dug 2K 1bpp)
+reg  [12:0] chr_addr;
 wire  [7:0] chr_q;
-dpram_dc #(.widthad_a(12)) chr_rom
+dpram_dc #(.widthad_a(13)) chr_rom
 (
     .clock_a(clk), .address_a(chr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(chr_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr & ~ioctl_addr[12]), .q_b()
+    .clock_b(clk), .address_b(ioctl_addr[12:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr), .q_b()
 );
 
-reg  [12:0] spr_rom_addr;
+// sprites (gfx2, 16K)
+reg  [13:0] spr_rom_addr;
 wire  [7:0] spr_rom_q;
-dpram_dc #(.widthad_a(13)) spr_rom
+dpram_dc #(.widthad_a(14)) spr_rom
 (
     .clock_a(clk), .address_a(spr_rom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spr_rom_q),
-    .clock_b(clk), .address_b(ioctl_addr[12:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr & ~ioctl_addr[13]), .q_b()
+    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr), .q_b()
 );
 
-// "proms": 000 palette, 020 character lookup, 120 sprite lookup. One copy for the pixel path, one for the sprite engine
+// Dig Dug playfield characters (gfx3, 4K 2bpp) and playfield maps (gfx4, 4 x 1K)
+reg  [11:0] pfc_addr;
+wire  [7:0] pfc_q;
+dpram_dc #(.widthad_a(12)) pfc_rom
+(
+    .clock_a(clk), .address_a(pfc_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(pfc_q),
+    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && ioctl_addr[16:12] == 5'h18), .q_b()
+);
+
+reg  [11:0] map_addr;
+wire  [7:0] map_q;
+dpram_dc #(.widthad_a(12)) map_rom
+(
+    .clock_a(clk), .address_a(map_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(map_q),
+    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx4_wr && ioctl_addr[13:12] == 2'd0), .q_b()
+);
+
+// "proms": 000 palette, 020 / 120 lookups (Galaga: characters / sprites; Dig Dug: sprites / playfield).
+// One copy for the pixel path, one for the sprite engine
 reg   [9:0] pix_prom_addr;
 wire  [7:0] pix_prom_q;
 dpram_dc #(.widthad_a(10)) pix_prom
@@ -104,7 +139,7 @@ dpram_dc #(.widthad_a(10)) spr_prom
 
 //------------------------------------------------------- Sprite line buffer --------------------------------------------------//
 
-// two lines of 512: entry = {opaque, 3'b0, pen}; the pixel path reads and clears one while the engine fills the other
+// two lines of 512: entry = {opaque, 2'b0, palette entry}; the pixel path reads and clears one while the engine fills the other
 reg   [9:0] lb_disp_addr;
 reg         lb_disp_clr;
 wire  [7:0] lb_disp_q;
@@ -120,42 +155,26 @@ dpram_dc #(.widthad_a(10)) line_buf
 
 //------------------------------------------------------- 05xx starfield ------------------------------------------------------//
 
-// 16-bit Fibonacci LFSR (taps 16, 13, 11, 6), stepped once per pixel over x 16-271 of the 224 visible lines; the rest
-// of each frame's 65536 + offset steps run at fabric speed in vertical blank (MAME starfield_05xx.cpp)
-reg  [15:0] lfsr = 16'h7FFF;
-reg  [12:0] bulk = 13'd0;
-reg         star_en = 1'b0;
-reg   [1:0] star_set_a, star_set_b;
-wire [15:0] lfsr_next = {lfsr[0] ^ lfsr[3] ^ lfsr[5] ^ lfsr[10], lfsr[15:1]};
-wire        star_win  = v_vis && px >= 9'd16 && px < 9'd272;
-wire        star_hit  = ((lfsr & 16'hFA14) == 16'h7800) && ({lfsr[10], lfsr[8]} == star_set_a || {lfsr[10], lfsr[8]} == star_set_b);
-wire  [5:0] star_col  = ~{lfsr[4], lfsr[1], lfsr[0], lfsr[7], lfsr[6], lfsr[5]};   // BBGGRR
+// Galaga: window x 16-271 of the visible lines; Q0-Q2 X speed, Q3 / Q4 set select, Q5 STARCLR (no Y scroll)
+wire       star_win = v_vis && px >= 9'd16 && px < 9'd272;
+wire       star_hit;
+wire [5:0] star_col;
 
-// X speed: extra (+) or skipped (-) steps per frame, indexed by Q2-Q0
-function [2:0] x_steps(input [2:0] q);       // 4 + offset
-    case (q)
-        3'd0: x_steps = 3'd4; 3'd1: x_steps = 3'd5; 3'd2: x_steps = 3'd6; 3'd3: x_steps = 3'd7;
-        3'd4: x_steps = 3'd0; 3'd5: x_steps = 3'd1; 3'd6: x_steps = 3'd2; 3'd7: x_steps = 3'd3;
-    endcase
-endfunction
-
-always @(posedge clk) begin
-    if (line_step && vcnt == 9'd15) begin                  // vblank ends: MAME screen_vblank_galaga
-        star_en    <= star_ctl[5];
-        star_set_a <= {1'b0, star_ctl[3]};
-        star_set_b <= {1'b1, star_ctl[4]};
-        if (!star_ctl[5]) lfsr <= 16'h7FFF;
-        else bulk <= {10'd0, x_steps(star_ctl[2:0])};
-    end
-    else if (line_step && vcnt == 9'd239) begin            // post-visible 10 lines + next frame's pre-visible 22, less 4
-        if (star_en) bulk <= 13'd8188;
-    end
-    else if (bulk != 13'd0) begin
-        bulk <= bulk - 13'd1;
-        lfsr <= lfsr_next;
-    end
-    else if (ce6 && star_en && star_win) lfsr <= lfsr_next;
-end
+namco_05xx stars
+(
+    .clk(clk),
+    .ce6(ce6),
+    .line_step(line_step),
+    .vcnt(vcnt),
+    .win(star_win),
+    .speed_x(star_ctl[2:0]),
+    .speed_y(3'd0),
+    .set_a({1'b0, star_ctl[3]}),
+    .set_b({1'b1, star_ctl[4]}),
+    .enable(star_ctl[5]),
+    .star(star_hit),
+    .color(star_col)
+);
 
 //------------------------------------------------------- Character layer + pixel path -----------------------------------------//
 
@@ -163,65 +182,91 @@ end
 // so RGB, blanking and syncs all leave two pixels after the counters.
 
 // tilemap_scan: row += 2, col -= 2; cols 0-1 and 34-35 come from the side columns
-wire [5:0] t_col  = fpx[8:3] - 6'd2;
-wire [4:0] t_row  = fpy[7:3] + 5'd2;
+wire [5:0] t_col  = tpx[8:3] - 6'd2;
+wire [4:0] t_row  = tpy[7:3] + 5'd2;
 wire [9:0] t_offs = t_col[5] ? {t_col[4:0], t_row} : {t_row, t_col[4:0]};
 
+// Inside a tile: the game flip uses the hardware's x-flipped character set (code bit 7) instead of mirroring x
+// (MAME: code | 0x80 with TILE_FLIPX); the Dig Dug playfield has no second set and simply mirrors.
+reg  [2:0] t_x, t_y, pf_x;
 reg  [5:0] t_color;
-reg  [2:0] t_x, t_y;
-reg  [1:0] t_pix;
+reg  [1:0] t_pix, pf_pix;
+reg  [7:0] fg_code;
+reg        fg_bit;
 reg  [7:0] s_entry;
 reg        vis_a, vis_b;
-reg  [3:0] c_pen;
 reg  [7:0] s_entry_b;
 reg        st_a, st_b;
 reg  [5:0] st_col_a, st_col_b;
+reg  [3:0] fg_col_b;
+reg        fg_bit_b;
 
-// charlayout_2bpp: 16 bytes per char, x 0-3 in bytes 8-15, x 4-7 in bytes 0-7; plane 0 = bits 7-4, plane 1 = bits 3-0.
-// Codes 80-FF (the flipped set, used while the screen is flipped) have the byte halves swapped (MAME init_galaga).
+wire [3:0] dd_fg_color = tx_mode ? fg_code[3:0] : {fg_code[7], fg_code[6], fg_code[5] | fg_code[4], 1'b0};
+
+// Galaga charlayout_2bpp: 16 bytes per char, x 0-3 in bytes 8-15, x 4-7 in bytes 0-7; plane 0 = bits 7-4, plane 1 =
+// bits 3-0; codes 80-FF have the byte halves swapped (MAME init_galaga). Dig Dug text: 8 bytes per char, x = bit x.
 always @(posedge clk) begin
     lb_disp_clr <= 1'b0;
     case (sub)
         3'd0: begin
             vram_addr    <= {1'b0, t_offs};
+            map_addr     <= {pf_sel, t_offs};
             lb_disp_addr <= {py[0], fpx};
-            t_x          <= fpx[2:0];
-            t_y          <= fpy[2:0];
+            t_x          <= tpx[2:0] ^ {3{flip}};
+            pf_x         <= tpx[2:0];
+            t_y          <= tpy[2:0];
             vis_a        <= h_vis & v_vis;
-            st_a         <= star_en & star_win & star_hit;
+            st_a         <= star_hit;
             st_col_a     <= star_col;
         end
         3'd1: vram_addr <= {1'b1, t_offs};
         3'd2: begin
-            chr_addr[11:4] <= {flip, vram_q[6:0]};
+            fg_code <= vram_q;
+            if (dd) chr_addr <= {2'b00, flip, vram_q[6:0], t_y};
+            else    chr_addr[12:4] <= {gfx_bank, flip, vram_q[6:0]};
+            pfc_addr <= {map_q, ~pf_x[2], t_y};
             s_entry <= lb_disp_q;
             lb_disp_clr <= vis_a;
         end
         3'd3: begin
-            t_color  <= vram_q[5:0];
-            chr_addr[3:0] <= {~t_x[2] ^ flip, t_y};
+            t_color <= dd ? (pf_off ? {pf_bank, 4'hF} : {pf_bank, map_q[7:4]}) : vram_q[5:0];
+            if (!dd) chr_addr[3:0] <= {~t_x[2] ^ flip, t_y};
         end
-        3'd5: t_pix <= {chr_q[3'd7 - {1'b0, t_x[1:0]}], chr_q[3'd3 - {1'b0, t_x[1:0]}]};
+        3'd5: begin
+            t_pix  <= {chr_q[3'd7 - {1'b0, t_x[1:0]}], chr_q[3'd3 - {1'b0, t_x[1:0]}]};
+            pf_pix <= {pfc_q[3'd7 - {1'b0, pf_x[1:0]}], pfc_q[3'd3 - {1'b0, pf_x[1:0]}]};
+        end
+        3'd6: fg_bit <= chr_q[t_x];
         3'd7: begin                                  // hand over to the colour stage
             vis_b     <= vis_a;
             s_entry_b <= s_entry;
             st_b      <= st_a;
             st_col_b  <= st_col_a;
+            fg_col_b  <= dd_fg_color;
+            fg_bit_b  <= fg_bit;
         end
         default: ;
     endcase
 end
 
-// PROM port: sub 6 character lookup for this pixel, sub 1 palette for the previous pixel
+// PROM port: sub 6 tile lookup for this pixel, sub 1 palette for the previous pixel
 reg  [4:0] pen;
+reg        pen_none;
 always @(posedge clk) begin
     case (sub)
-        3'd6: pix_prom_addr <= 10'h020 + {2'b00, t_color, t_pix};
+        3'd6: pix_prom_addr <= dd ? 10'h120 + {2'b00, t_color, pf_pix} : 10'h020 + {2'b00, t_color, t_pix};
         3'd0: begin
-            c_pen <= pix_prom_q[3:0];                       // lookup for the pixel now in the colour stage
-            if (pix_prom_q[3:0] != 4'hF)  pen <= {1'b1, pix_prom_q[3:0]};     // characters: palette 10-1F
-            else if (s_entry_b[7])        pen <= {1'b0, s_entry_b[3:0]};      // sprites: palette 00-0F
-            else                          pen <= 5'h1F;                       // background: star or black
+            pen_none <= 1'b0;
+            if (dd) begin                                                            // sprites > text > playfield
+                if (s_entry_b[7])     pen <= s_entry_b[4:0];
+                else if (fg_bit_b)    pen <= {1'b0, fg_col_b};
+                else                  pen <= {1'b0, pix_prom_q[3:0]};
+            end
+            else begin                                                               // characters > sprites > stars
+                if (pix_prom_q[3:0] != 4'hF)  pen <= {1'b1, pix_prom_q[3:0]};
+                else if (s_entry_b[7])        pen <= s_entry_b[4:0];
+                else begin                    pen <= 5'h1F; pen_none <= 1'b1; end
+            end
         end
         3'd1: pix_prom_addr <= {5'd0, pen};
         default: ;
@@ -251,8 +296,8 @@ endfunction
 reg       black, star;
 always @(posedge clk) begin
     if (sub == 3'd3) begin
-        black <= ~vis_b | (pen == 5'h1F & ~st_b);
-        star  <= pen == 5'h1F & st_b;
+        black <= ~vis_b | (pen_none & ~st_b);
+        star  <= pen_none & st_b;
     end
     if (ce6) begin
         red    <= black ? 8'd0 : star ? lvl_star(st_col_b[1:0]) : lvl3(pix_prom_q[2:0]);
@@ -296,11 +341,16 @@ reg        d_go;
 
 wire       f_flipx = r_flags[0] ^ flip;
 wire       f_flipy = r_flags[1] ^ flip;
-wire       f_sizex = r_flags[2];
-wire       f_sizey = r_flags[3];
+wire       f_sizex = dd ? r_code[7] : r_flags[2];
+wire       f_sizey = dd ? r_code[7] : r_flags[3];
 
-// MAME: sx = x - 40 + 256 * (xmsb & 3); sy = ((256 - y + 1 - 16 * sizey) & 0xFF) - 32
-wire [9:0] e_sx  = {r_xmsb[1:0], r_x} - 10'd40;
+// Galaga: code & 7F. Dig Dug: code bit 7 = double size, then code = (code & C0) | ((code & 3F) << 2)
+wire [7:0] e_code = dd ? (r_code[7] ? {r_code[7] | r_code[5], r_code[6] | r_code[4], r_code[3:0], 2'b00} : r_code)
+                       : {1'b0, r_code[6:0]};
+
+// MAME Galaga: sx = x - 40 + 256 * (xmsb & 3). Dig Dug: sx = x - 39, each 16-pixel column at (sx + 16 n) & FF,
+// wrapping to +100. Both: sy = ((256 - y + 1 - 16 * sizey) & 0xFF) - 32
+wire [9:0] e_sx  = dd ? {2'b00, r_x} - 10'd39 : {r_xmsb[1:0], r_x} - 10'd40;
 wire [7:0] e_sy8 = 8'd1 - r_y - {3'd0, f_sizey, 4'd0};
 wire [8:0] e_dy  = tgt_y + 9'd32 - {1'b0, e_sy8};          // line within the sprite, valid when < height
 wire       e_hit = (e_dy < (f_sizey ? 9'd32 : 9'd16));
@@ -314,7 +364,13 @@ wire [4:0] dcx    = f_flipx ? ~d_px[4:0] : d_px[4:0];       // column in the (up
 wire [4:0] dcy    = f_flipy ? ~d_dy : d_dy;
 wire       code_x = f_sizex ? dcx[4] : 1'b0;
 wire       code_y = f_sizey ? dcy[4] : 1'b0;
-wire [6:0] d_code = r_code[6:0] + {5'd0, code_y, code_x};
+reg  [7:0] d_code0;
+wire [7:0] d_code = d_code0 + {6'd0, code_y, code_x};
+
+// Dig Dug X: 16-pixel column start wraps at 256, pixels left of x 16 come back at +256
+wire [7:0] dd_col0 = d_sx[7:0] + {3'd0, d_px[4], 4'd0};
+wire [8:0] dd_x0   = {1'b0, dd_col0} + {5'd0, d_px[3:0]};
+wire [9:0] dd_x    = (dd_x0 < 9'd16) ? {1'b0, dd_x0} + 10'd256 : {1'b0, dd_x0};
 wire [3:0] col    = f_sizex ? dcx[3:0] : (f_flipx ? ~d_px[3:0] : d_px[3:0]);
 wire [3:0] row    = f_sizey ? dcy[3:0] : (f_flipy ? ~d_dy[3:0] : d_dy[3:0]);
 
@@ -326,12 +382,12 @@ always @(posedge clk) begin
     p_c[1] <= p_c[0];
 
     // ROM data valid for the address issued two clocks ago
-    if (p_v[1]) spr_prom_addr <= 10'h120 + {2'b00, r_color[5:0], spr_rom_q[3'd7 - {1'b0, p_c[1]}], spr_rom_q[3'd3 - {1'b0, p_c[1]}]};
+    if (p_v[1]) spr_prom_addr <= (dd ? 10'h020 : 10'h120) + {2'b00, r_color[5:0], spr_rom_q[3'd7 - {1'b0, p_c[1]}], spr_rom_q[3'd3 - {1'b0, p_c[1]}]};
 
-    // lookup data -> line buffer (pen F is transparent)
-    if (p_v[3] && spr_prom_q[3:0] != 4'hF && p_x[3] < 10'd288) begin
+    // lookup data -> line buffer (lookup F is transparent). Palette: Galaga sprites 00-0F, Dig Dug sprites 10-1F
+    if (p_v[3] && spr_prom_q[3:0] != 4'hF && (dd ? (p_x[3] >= 10'd16 && p_x[3] < 10'd272) : p_x[3] < 10'd288)) begin
         lb_eng_addr <= {tgt_buf, p_x[3][8:0]};
-        lb_eng_data <= {4'b1000, spr_prom_q[3:0]};
+        lb_eng_data <= {3'b100, dd, spr_prom_q[3:0]};
         lb_eng_wr   <= 1'b1;
     end
 
@@ -355,6 +411,7 @@ always @(posedge clk) begin
         S_EVAL: begin
             d_dy  <= e_dy[4:0];
             d_sx  <= e_sx;
+            d_code0 <= e_code;
             d_px  <= 6'd0;
             d_len <= f_sizex ? 6'd31 : 6'd15;
             st    <= e_hit ? S_DRAW : S_NEXT;
@@ -364,7 +421,7 @@ always @(posedge clk) begin
             spr_rom_addr <= {d_code, row[3], col[3:2], row[2:0]};
             p_v[0] <= 1'b1;
             p_c[0] <= col[1:0];
-            p_x[0] <= d_sx + {4'd0, d_px};
+            p_x[0] <= dd ? dd_x : d_sx + {4'd0, d_px};
             d_px  <= d_px + 6'd1;
             if (d_px == d_len) st <= S_NEXT;
         end

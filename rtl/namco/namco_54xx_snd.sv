@@ -11,6 +11,8 @@
 //  BOARD 0: Galaga / Xevious / Bosconian parts, op-amp mixer 33k/33k/10k,
 //           rF 3.3k, 0.1 uF output coupling, gain 40800, route 0.90
 //  BOARD 1: Pole Position parts, outputs summed, route 0.90
+//  BOARD 2: Bosconian: Galaga parts; the op-amp mix and the 52xx voice (ext_volts) meet in a resistor mixer
+//           ((v + voice) / 12), then the 0.1 uF high-pass, gain 462000, route 0.90
 //
 //============================================================================
 
@@ -23,6 +25,8 @@ module namco_54xx_snd #(parameter BOARD = 0)
     input             [3:0] o0_data,        // O0-O3 -> CHANL3
     input             [3:0] o1_data,        // O4-O7 -> CHANL2
     input             [3:0] r1_data,        // R1    -> CHANL1
+    input                     bosco,          // BOARD 0 at run time: Bosconian mixer (as BOARD 2)
+    input      signed  [31:0] ext_volts,      // Bosconian: 52xx voice, 2^22 per volt
 
     output reg signed [15:0] audio = 16'sd0
 );
@@ -75,7 +79,7 @@ reg signed [31:0] out_acc;
 // b0, b1 (0), b2, -a1, -a2 in Q28
 reg signed [31:0] coef;
 always @(*) begin
-    if (BOARD == 0)
+    if (BOARD != 1)
         case ({ch, t})
             {2'd0,3'd0}: coef = -32'sd24476346;   {2'd0,3'd2}: coef =  32'sd24476346;      // 2521 Hz
             {2'd0,3'd3}: coef =  32'sd464692700;  {2'd0,3'd4}: coef = -32'sd222760339;
@@ -116,17 +120,21 @@ wire signed [31:0] y_cl  = y_c36[31:0];
 
 // BOARD 0: inverting op-amp mixer, weight -rF / r_i (Q12), accumulated in Q8 volts.
 // BOARD 1: weight 0.90 (Q12) straight to sample units, truncated per channel as the Pole Position core does.
-wire signed [12:0] w_ch     = (BOARD == 0) ? ((ch == 2'd2) ? -13'sd1352 : -13'sd410) : 13'sd3686;
+wire signed [12:0] w_ch     = (BOARD != 1) ? ((ch == 2'd2) ? -13'sd1352 : -13'sd410) : 13'sd3686;
 wire signed [44:0] wprod    = y_cl * w_ch;
-wire signed [31:0] out_next = (BOARD == 0) ? out_acc + wprod[43:12] : out_acc + {{12{wprod[44]}}, wprod[39:20]};
+wire signed [31:0] out_next = (BOARD != 1) ? out_acc + wprod[43:12] : out_acc + {{12{wprod[44]}}, wprod[39:20]};
+wire       bosco_mix        = (BOARD == 2) || (BOARD == 0 && bosco);
+wire signed [31:0] mix_v    = bosco_mix ? out_next + ext_volts : out_next;
 
 // BOARD 0 output: 0.1 uF coupling into 100k (high-pass, MAME cAmp), then 40800 / 32768 * 0.90 per volt
 reg  signed [31:0] hp_cap = 32'sd0;
-wire signed [31:0] hp_in       = out_next - hp_cap;
+wire signed [31:0] hp_in       = mix_v - hp_cap;
 wire signed [48:0] hp_d        = hp_in * 17'sd136;               // 1 - exp(-1 / (10 ms * 48 kHz)), Q16
 wire signed [31:0] hp_cap_next = hp_cap + hp_d[47:16];
-wire signed [31:0] hp_v        = out_next - hp_cap_next;
-wire signed [47:0] g0          = hp_v * 15'sd9180;                              // 36720 / 4, Q8 volts = 2^22 per volt
+wire signed [31:0] hp_v        = mix_v - hp_cap_next;
+// per volt: Galaga 40800 / 32768 * 0.90 * 32768 = 36720; Bosconian 462000 / 12 * 0.90 = 34650 (/ 4: 2^22 per volt)
+wire signed [15:0] out_gain    = bosco_mix ? 16'sd8662 : 16'sd9180;
+wire signed [47:0] g0          = hp_v * out_gain;
 
 function automatic signed [15:0] sat16(input signed [47:0] v);
     sat16 = (v > 48'sd32767) ? 16'sh7FFF : (v < -48'sd32768) ? 16'sh8000 : v[15:0];
@@ -161,7 +169,7 @@ always @(posedge clk) begin
         t      <= 3'd0;
         if (ch == 2'd2) begin
             busy <= 1'b0;
-            if (BOARD == 0) begin
+            if (BOARD != 1) begin
                 hp_cap <= hp_cap_next;
                 audio  <= sat16(g0 >>> 20);
             end

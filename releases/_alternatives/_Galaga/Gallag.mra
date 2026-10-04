@@ -1,17 +1,17 @@
 <misterromdescription>
-    <name>Galaga (Namco)</name>
+    <name>Gallag</name>
     <region>World</region>
     <homebrew>no</homebrew>
-    <bootleg>no</bootleg>
+    <bootleg>yes</bootleg>
     <version></version>
     <alternative></alternative>
     <platform></platform>
     <series>Galaxian</series>
-    <year>1981</year>
-    <manufacturer>Namco</manufacturer>
+    <year>1982</year>
+    <manufacturer>bootleg</manufacturer>
     <category>Shooter</category>
 
-    <setname>galagao</setname>
+    <setname>gallag</setname>
     <parent>galaga</parent>
     <mameversion>0289</mameversion>
     <rbf>Galaga</rbf>
@@ -40,20 +40,22 @@
     </switches>
 
     <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
-    <rom index="0" md5="none" zip="galagao.zip|galaga.zip|namco51.zip|namco54.zip">
-        <part crc="a3a0f743" name="gg1-1.3p"/>
-        <part crc="43bb0d5c" name="gg1-2.3m"/>
-        <part crc="753ce503" name="gg1-3.2m"/>
-        <part crc="83874442" name="gg1-4.2l"/>
+    <rom index="0" md5="none" zip="gallag.zip|galaga.zip|namco51.zip">
+        <part crc="a3a0f743" name="gallag.1"/>
+        <part crc="5eda60a7" name="gallag.2"/>
+        <part crc="753ce503" name="gallag.3"/>
+        <part crc="83874442" name="gallag.4"/>
         <part repeat="0x4000">00</part>
-        <part crc="3102fccd" name="gg1-5.3f"/>
+        <part crc="3102fccd" name="gallag.5"/>
         <part repeat="0x3000">00</part>
-        <part crc="8995088d" name="gg1-7.2c"/>
+        <part crc="8995088d" name="gallag.7"/>
         <part repeat="0x3000">00</part>
-        <part crc="58b2f47c" name="gg1-9.4l"/>
-        <part repeat="0x3000">00</part>
-        <part crc="ad447c80" name="gg1-11.4d"/>
-        <part crc="dd6f1afc" name="gg1-10.4f"/>
+        <part crc="169a98a4" name="gallag.8"/>
+        <part repeat="0x1000">00</part>
+        <part crc="001b70bc" name="gallag.6"/>
+        <part repeat="0x1000">00</part>
+        <part crc="ad447c80" name="gallag.a"/>
+        <part crc="dd6f1afc" name="gallag.9"/>
         <part repeat="0xC000">00</part>
         <part crc="54603c6b" name="prom-5.5n"/>
         <part crc="59b6edab" name="prom-4.2n"/>
@@ -62,14 +64,12 @@
         <part crc="7a2815b4" name="prom-1.1d"/>
         <part repeat="0x9700">00</part>
         <part crc="c2f57ef8" name="51xx.bin"/>
-        <part repeat="0x800">00</part>
-        <part crc="ee7357e0" name="54xx.bin"/>
     </rom>
 
     <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
     <rom index="1">
         <part>
-            00 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
             00 04 00 03 00 0C 00 0B 05 0D 13 14 11 12 16 00
             00 00 00 00 00 24 00 00 00 00 00 00 00 00 00 00
         </part>
@@ -86,6 +86,6 @@
     <rom index="4"></rom>
     <nvram index="4" size="51"></nvram>
 
-    <remark>Galaga (Namco)</remark>
+    <remark>Gallag (Bootleg)</remark>
     <mratimestamp>20261003000000</mratimestamp>
 </misterromdescription>

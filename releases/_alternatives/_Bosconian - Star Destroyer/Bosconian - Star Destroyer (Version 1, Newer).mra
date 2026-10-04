@@ -1,0 +1,102 @@
+<misterromdescription>
+    <name>Bosconian - Star Destroyer (Version 1, Newer)</name>
+    <region>World</region>
+    <homebrew>no</homebrew>
+    <bootleg>no</bootleg>
+    <version></version>
+    <alternative></alternative>
+    <platform></platform>
+    <series>Bosconian</series>
+    <year>1981</year>
+    <manufacturer>Namco</manufacturer>
+    <category>Shooter</category>
+
+    <setname>bosco1</setname>
+    <parent>bosco</parent>
+    <mameversion>0289</mameversion>
+    <rbf>Galaga</rbf>
+    <about></about>
+
+    <resolution>15kHz</resolution>
+    <rotation>horizontal</rotation>
+    <flip>yes</flip>
+
+    <players>2 (alternating)</players>
+    <joystick>8-way</joystick>
+    <special_controls></special_controls>
+    <num_buttons>1</num_buttons>
+    <buttons names="Fire,Not Used,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,Y,B,X,Select,Start,R,L"/>
+
+    <switches default="FF,FF,F7,A7">
+        <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
+        <dip name="Difficulty" bits="16,17" ids="Easy,Medium,Hardest,Auto" values="1,3,2,0"/>
+        <dip name="Allow Continue" bits="18" ids="No,Yes"/>
+        <dip name="Demo Sounds" bits="19" ids="Off,On" values="1,0"/>
+        <dip name="Freeze" bits="20" ids="Off,On" values="1,0"/>
+        <dip name="Cabinet" bits="23" ids="Upright,Cocktail" values="1,0"/>
+        <dip name="Coinage" bits="24,26" ids="4C/1C,3C/1C,2C/1C,1C/1C,2C/3C,1C/2C,1C/3C,Free Play" values="1,2,3,7,4,6,5,0"/>
+        <dip name="Bonus Fighter" bits="27,29" ids="15K and 50K Only,20K and 70K Only,10K; 50K; Every 50K,15K; 50K; Every 50K,15K; 70K; Every 70K,20K; 70K; Every 70K,30K; 100K; Every 100K,None" values="6,7,1,2,3,4,5,0"/>
+        <dip name="Lives" bits="30,31" ids="1,2,3,5"/>
+    </switches>
+
+    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <rom index="0" md5="none" zip="bosco1.zip|bosco.zip|namco50.zip|namco51.zip|namco52.zip|namco54.zip">
+        <part crc="0d9920e7" name="bos1_1.3n"/>
+        <part crc="2d8f3ebe" name="bos1_2.3m"/>
+        <part crc="c80ccfa5" name="bos1_3.3l"/>
+        <part crc="a3f7f4ab" name="bos1_4b.3k"/>
+        <part repeat="0x4000">00</part>
+        <part crc="a7c8e432" name="bos1_5c.3j"/>
+        <part crc="31b8c648" name="bos1_6.3h"/>
+        <part repeat="0x2000">00</part>
+        <part crc="d45a4911" name="bos1_7.3e"/>
+        <part repeat="0x3000">00</part>
+        <part crc="a956d3c5" name="bos1_14.5d"/>
+        <part repeat="0x3000">00</part>
+        <part crc="e869219c" name="bos1_13.5e"/>
+        <part repeat="0x3000">00</part>
+        <part crc="9b69b543" name="bos1-4.2r"/>
+        <part repeat="0x9F00">00</part>
+        <part crc="d2b96fb0" name="bos1-6.6b"/>
+        <part crc="4e15d59c" name="bos1-5.4m"/>
+        <part crc="b88d5ba9" name="bos1-3.2d"/>
+        <part crc="87d61353" name="bos1-7.7h"/>
+        <part repeat="0xEA0">00</part>
+        <part crc="de2316c6" name="bos1-1.1d"/>
+        <part repeat="0x4F00">00</part>
+        <part crc="09acc978" name="bos1_9.5n"/>
+        <part crc="e571e959" name="bos1_10.5m"/>
+        <part crc="17ac9511" name="bos1_11.5k"/>
+        <part repeat="0x1000">00</part>
+        <part crc="a0acbaf7" name="50xx.bin"/>
+        <part crc="c2f57ef8" name="51xx.bin"/>
+        <part crc="3257d11e" name="52xx.bin"/>
+        <part repeat="0x400">00</part>
+        <part crc="ee7357e0" name="54xx.bin"/>
+    </rom>
+
+    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <rom index="1">
+        <part>
+            07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 04 02 03 09 0C 0A 0B 05 0D 13 14 11 12 16 00
+            00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        </part>
+    </rom>
+
+    <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
+    <rom index="3" md5="none">
+        <part>
+            30 D1 F0 09 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 8B C5 00 0F 17 18
+            00 00 8B E4 00 10 00 00
+            00 00 88 5C 00 04 00 00
+            00 00 80 60 00 08 00 02
+        </part>
+    </rom>
+    <rom index="4"></rom>
+    <nvram index="4" size="43"></nvram>
+
+    <remark>Bosconian - Star Destroyer (Version 1, Newer) (Namco)</remark>
+    <mratimestamp>20261003000000</mratimestamp>
+</misterromdescription>

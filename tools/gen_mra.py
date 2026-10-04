@@ -25,7 +25,7 @@ HISCORE_DAT = Path("/CybertronMD/Mame/plugins/hiscore/hiscore.dat")   # current 
 HISCORE_HEADER_TAIL = "00 FF 00 02 00 02 00 01 11 11 00 00"
 # START_WAIT = last boot-time write to the hiscore.dat ranges, measured in MAME (write taps, 30 s, bytes rewritten
 # every frame excluded), + 2 frames. Keyed by a reference set per distinct hiscore.dat layout.
-HISCORE_INIT_FRAME = {}
+HISCORE_INIT_FRAME = {'galaga': 863, 'gatsbee': 9, 'digdug': 183, 'xevious': 722, 'xeviousb': 1416, 'bosco': 1008, 'battles2': 99}
 CLK_HZ, FRAME_HZ = 49_152_000, 60.61
 
 # region -> (base in ioctl index 0, size taken)
@@ -52,7 +52,9 @@ MCU_ROMS = {
     "54xx": ("namco54.zip", "54xx.bin", "ee7357e0", 0x2D400, 0x400),
 }
 # machine config -> MCUs on the board
-MCUS = {"galaga": ("51xx", "54xx")}
+MCUS = {"galaga": ("51xx", "54xx"), "galagab": ("51xx",), "gatsbee": ("51xx", "54xx"),
+        "digdug": ("51xx", "53xx"), "dzigzag": ("51xx", "53xx"), "xevious": ("50xx", "51xx", "54xx"),
+        "bosco": ("50xx", "51xx", "52xx", "54xx")}
 
 # machine -> {region: (ioctl index, base, size) or None to drop}
 REGION_OVERRIDE = {}
@@ -62,6 +64,13 @@ IGNORED_REGIONS = {"pals", "pals_vidbd", "user1"}   # dumps MAME does not use
 # (machine config, init) pairs the board implements, -> board variant byte
 SUPPORTED = {
     ("galaga", "init_galaga"): 0,
+    ("galagab", "init_galaga"): 1,      # Gallag / Nebulous Bee: Z80 replaces the customs, no 54xx explosions
+    ("gatsbee", "init_galaga"): 2,
+    ("digdug", "empty_init"): 3,
+    ("dzigzag", "empty_init"): 3,
+    ("xevious", "init_xevious"): 5,
+    ("xevious", "init_xevios"): 6,      # Xevios, Battles set 2: bootleg ROM bit order
+    ("bosco", "empty_init"): 7,
 }
 
 # init -> (index 1 byte 2 CPU ROM decode, byte 3 gfx decode)

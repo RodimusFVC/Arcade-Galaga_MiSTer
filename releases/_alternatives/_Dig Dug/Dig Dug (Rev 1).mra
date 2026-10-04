@@ -1,0 +1,97 @@
+<misterromdescription>
+    <name>Dig Dug (Rev 1)</name>
+    <region>World</region>
+    <homebrew>no</homebrew>
+    <bootleg>no</bootleg>
+    <version></version>
+    <alternative></alternative>
+    <platform></platform>
+    <series>Dig Dug</series>
+    <year>1982</year>
+    <manufacturer>Namco</manufacturer>
+    <category>Maze</category>
+
+    <setname>digdug1</setname>
+    <parent>digdug</parent>
+    <mameversion>0289</mameversion>
+    <rbf>Galaga</rbf>
+    <about></about>
+
+    <resolution>15kHz</resolution>
+    <rotation>vertical (cw)</rotation>
+    <flip>yes</flip>
+
+    <players>2 (alternating)</players>
+    <joystick>4-way</joystick>
+    <special_controls></special_controls>
+    <num_buttons>1</num_buttons>
+    <buttons names="Fire,Not Used,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,Y,B,X,Select,Start,R,L"/>
+
+    <switches default="FF,FF,99,24">
+        <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
+        <dip name="Coin B" bits="16,18" ids="3C/1C,2C/1C,1C/1C,2C/3C,1C/2C,1C/3C,1C/6C,1C/7C" values="7,3,1,5,6,2,4,0"/>
+        <dip name="Bonus Life" bits="19,21" ids="10K; 40K; Every 40K,10K; 50K; Every 50K,20K; 60K; Every 60K,20K; 70K; Every 70K,10K and 40K Only,20K and 60K Only,10K Only,None" values="4,2,6,1,5,3,7,0"/>
+        <dip name="Lives" bits="22,23" ids="1,2,3,5"/>
+        <dip name="Coin A" bits="30,31" ids="2C/1C,1C/1C,2C/3C,1C/2C" values="1,0,3,2"/>
+        <dip name="Freeze" bits="29" ids="Off,On" values="1,0"/>
+        <dip name="Demo Sounds" bits="28" ids="Off,On" values="1,0"/>
+        <dip name="Allow Continue" bits="27" ids="No,Yes" values="1,0"/>
+        <dip name="Cabinet" bits="26" ids="Upright,Cocktail" values="1,0"/>
+        <dip name="Difficulty" bits="24,25" ids="Easy,Medium,Hard,Hardest" values="0,2,1,3"/>
+    </switches>
+
+    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <rom index="0" md5="none" zip="digdug1.zip|digdug.zip|namco51.zip|namco53.zip">
+        <part crc="b9198079" name="dd1.1"/>
+        <part crc="b2acbe49" name="dd1.2"/>
+        <part crc="d6407b49" name="dd1.3"/>
+        <part crc="f4cebc16" name="dd1.4b"/>
+        <part repeat="0x4000">00</part>
+        <part crc="370ef9b4" name="dd1.5b"/>
+        <part crc="361eeb71" name="dd1.6b"/>
+        <part repeat="0x2000">00</part>
+        <part crc="a41bce72" name="dd1.7"/>
+        <part repeat="0x3000">00</part>
+        <part crc="f14a6fe1" name="dd1.9"/>
+        <part repeat="0x3800">00</part>
+        <part crc="e22957c8" name="dd1.15"/>
+        <part crc="2829ec99" name="dd1.14"/>
+        <part crc="458499e9" name="dd1.13"/>
+        <part crc="c58252a0" name="dd1.12"/>
+        <part crc="7b383983" name="dd1.11"/>
+        <part repeat="0x9000">00</part>
+        <part crc="4cb9da99" name="136007.113"/>
+        <part crc="00c7c419" name="136007.111"/>
+        <part crc="e9b3e08e" name="136007.112"/>
+        <part repeat="0xDE0">00</part>
+        <part crc="7a2815b4" name="136007.110"/>
+        <part repeat="0xF00">00</part>
+        <part crc="2cf399c2" name="dd1.10b"/>
+        <part repeat="0x7800">00</part>
+        <part crc="c2f57ef8" name="51xx.bin"/>
+        <part repeat="0x400">00</part>
+        <part crc="b326fecb" name="53xx.bin"/>
+    </rom>
+
+    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <rom index="1">
+        <part>
+            03 91 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            01 04 02 03 09 0C 0A 0B 05 0D 13 14 11 12 16 00
+            00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        </part>
+    </rom>
+
+    <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
+    <rom index="3" md5="none">
+        <part>
+            08 F1 39 E8 00 FF 00 02 00 02 00 01 11 11 00 00
+            00 00 89 A0 00 25 01 01
+        </part>
+    </rom>
+    <rom index="4"></rom>
+    <nvram index="4" size="37"></nvram>
+
+    <remark>Dig Dug (Rev 1) (Namco)</remark>
+    <mratimestamp>20261003000000</mratimestamp>
+</misterromdescription>
