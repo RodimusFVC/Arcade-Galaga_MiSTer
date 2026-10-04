@@ -329,7 +329,7 @@ wire [7:0] earom_q;
 
 // work / video RAMs; port B: video (tile RAM, sprite registers)
 wire  [7:0] vram_q, ram1_q, ram2_q, ram3_q;
-wire [10:0] ra = v_xev ? ba[10:0] : {1'b0, ba[9:0]};
+wire [10:0] ra = (v_xev | v_bo) ? ba[10:0] : {1'b0, ba[9:0]};   // Xevious / Bosconian RAM 1 is 2K
 
 dpram_dc #(.widthad_a(12)) vram
 (

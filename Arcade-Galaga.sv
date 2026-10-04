@@ -298,11 +298,14 @@ always @(posedge CLK_49M) begin
 		dip_sw[ioctl_addr[2:0]] <= ioctl_dout;
 end
 
+// IN0/IN1 are all active-low (MAME galaga.cpp); only IN1 bit 7 (Service Mode) comes from the DIP bytes
+wire [31:0] idle = {dip_sw[3], dip_sw[2], dip_sw[1][7], 7'h7F, 8'hFF};
+
 reg [7:0] in_port[4];
 always @(posedge CLK_49M) begin
 	for (int p = 0; p < 4; p++)
 		for (int b = 0; b < 8; b++)
-			in_port[p][b] <= dip_sw[p][b] ^ ctl[in_map[p*8 + b]];
+			in_port[p][b] <= idle[p*8 + b] ^ ctl[in_map[p*8 + b]];
 end
 
 // PAUSE SYSTEM
