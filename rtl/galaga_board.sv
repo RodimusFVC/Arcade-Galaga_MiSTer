@@ -609,11 +609,16 @@ wire [3:0] n06_chip_wr;
 wire [7:0] n51_q;
 wire       mcu_reset_n = ~sys_reset & misc_latch[3];
 
+// Xevious only: 06xx base tick anchored to MAME screen time 0 (raw x 0, y 0), so the per-frame 51xx poll ends
+// before the main CPU's 50xx request. Other boards keep the free-running tick they were verified with.
+wire n06_sync = v_xev && ce6 && hcnt == 9'h0F0 && vcnt == 9'd16;
+
 namco_06xx n06
 (
     .clk(clk),
     .reset(sys_reset),
     .pause(pause),
+    .sync(n06_sync),
     .cpu_dout(bdo),
     .data_wr(bwr & cs_06xx & ~ba[8]),
     .data_rd(brd & cs_06xx & ~ba[8]),
@@ -735,6 +740,7 @@ namco_06xx #(.BASE_DIV(8192)) n06b
     .clk(clk),
     .reset(sys_reset | ~v_bo),
     .pause(pause),
+    .sync(n06_sync),
     .cpu_dout(bdo),
     .data_wr(bwr & cs_06xx1 & ~ba[8]),
     .data_rd(brd & cs_06xx1 & ~ba[8]),

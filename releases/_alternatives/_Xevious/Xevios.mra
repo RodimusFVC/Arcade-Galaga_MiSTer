@@ -25,7 +25,7 @@
     <joystick>8-way</joystick>
     <special_controls></special_controls>
     <num_buttons>2</num_buttons>
-    <buttons names="Fire,Button 2,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,Y,B,X,Select,Start,R,L"/>
+    <buttons names="Fire,Button 2,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,B,Y,X,Select,Start,R,L"/>
 
     <switches default="FF,FF,FF,FF">
         <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>

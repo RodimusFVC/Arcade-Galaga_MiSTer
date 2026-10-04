@@ -530,7 +530,7 @@ def mra(g, games, segs, build_inputs):
     <joystick>{"2-way" if twoway else "4-way" if fourway else "8-way"}</joystick>
     <special_controls>{"trackball" if any(24 <= i < 32 for i in imap) else ""}</special_controls>
     <num_buttons>{nbtn}</num_buttons>
-    <buttons names="{names}" default="A,Y,B,X,Select,Start,R,L"/>
+    <buttons names="{names}" default="A,B,Y,X,Select,Start,R,L"/>
 
     <switches default="{",".join(f"{b:02X}" for b in idle)}">
 {dip_lines}

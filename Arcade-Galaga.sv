@@ -127,7 +127,7 @@ localparam CONF_STR = {
 	"-;",
 	"R0,Reset;",
 	"J1,Btn 1,Btn 2,Btn 3,Btn 4,Coin,Start 1P,Start 2P,Pause,Btn 5,Btn 6,Rack Test;",
-	"jn,A,Y,B,X,Select,Start,R,L;",
+	"jn,A,B,Y,X,Select,Start,R,L;",
 	"V,v",`BUILD_DATE
 };
 
@@ -298,8 +298,20 @@ always @(posedge CLK_49M) begin
 		dip_sw[ioctl_addr[2:0]] <= ioctl_dout;
 end
 
-// IN0/IN1 are all active-low (MAME galaga.cpp); only IN1 bit 7 (Service Mode) comes from the DIP bytes
-wire [31:0] idle = {dip_sw[3], dip_sw[2], dip_sw[1][7], 7'h7F, 8'hFF};
+// Controls idle high (all active-low, MAME galaga.cpp) whatever the DIP bytes hold; only DIP switch bits come from them.
+// IN0/IN1: all controls except IN1 bit 7 (Service Mode). DSWA/DSWB: bits mapped to a player button (Xevious bombs).
+function automatic is_btn(input [5:0] id);
+	is_btn = (id >= 6'd5 && id <= 6'd8) || (id >= 6'd13 && id <= 6'd16) || (id >= 6'd32 && id <= 6'd35);
+endfunction
+
+wire [31:0] idle;
+assign idle[15:0] = {dip_sw[1][7], 7'h7F, 8'hFF};
+genvar gi;
+generate
+	for (gi = 16; gi < 32; gi = gi + 1) begin : dsw_idle
+		assign idle[gi] = is_btn(in_map[gi]) ? 1'b1 : dip_sw[gi / 8][gi % 8];
+	end
+endgenerate
 
 reg [7:0] in_port[4];
 always @(posedge CLK_49M) begin

@@ -22,6 +22,7 @@ module namco_06xx #(parameter BASE_DIV = 1024)   // clk / BASE_DIV = the 06xx cl
     input  wire        clk,        // 49.152 MHz
     input  wire        reset,
     input  wire        pause,      // freezes the timer with the CPUs
+    input  wire        sync,       // frame origin: puts the base tick on MAME's grid (ticks at screen time k / clock)
 
     // CPU side
     input  wire  [7:0] cpu_dout,
@@ -65,8 +66,9 @@ module namco_06xx #(parameter BASE_DIV = 1024)   // clk / BASE_DIV = the 06xx cl
     wire       base_ce   = (base_cnt == BASE_LAST[12:0]);
 
     always @(posedge clk) begin
-        if (reset) base_cnt <= 13'd0;
-        else       base_cnt <= base_ce ? 13'd0 : base_cnt + 13'd1;
+        if (reset)     base_cnt <= 13'd0;
+        else if (sync) base_cnt <= BASE_LAST[12:0];
+        else           base_cnt <= base_ce ? 13'd0 : base_cnt + 13'd1;
     end
 
     always @(posedge clk) begin
