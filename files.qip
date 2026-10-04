@@ -1,0 +1,19 @@
+set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008
+
+set_global_assignment -name SYSTEMVERILOG_FILE Arcade-Galaga.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/galaga_board.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/galaga_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_06xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_51xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_54xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_54xx_snd.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_wsg3.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/mb88_sv/mb88_core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/mb88_sv/mb88.sv
+
+set_global_assignment -name QIP_FILE rtl/cpu/T80/T80.qip
+
+set_global_assignment -name VERILOG_FILE rtl/mister_custom/pause.v
+
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ram_rom/rom_loader.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/ram_rom/dpram_dc.sv

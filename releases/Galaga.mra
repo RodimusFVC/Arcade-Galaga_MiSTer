@@ -1,0 +1,80 @@
+<misterromdescription>
+    <name>Galaga</name>
+    <region>World</region>
+    <homebrew>no</homebrew>
+    <bootleg>no</bootleg>
+    <version></version>
+    <alternative></alternative>
+    <platform></platform>
+    <series>Galaxian</series>
+    <year>1981</year>
+    <manufacturer>Namco</manufacturer>
+    <category>Shooter</category>
+
+    <setname>galaga</setname>
+    <parent>galaga</parent>
+    <mameversion>0289</mameversion>
+    <rbf>Galaga</rbf>
+    <about></about>
+
+    <resolution>15kHz</resolution>
+    <rotation>vertical (cw)</rotation>
+    <flip>yes</flip>
+
+    <players>2 (alternating)</players>
+    <joystick>2-way</joystick>
+    <special_controls></special_controls>
+    <num_buttons>1</num_buttons>
+    <buttons names="Fire,Not Used,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Rack Test" default="A,Y,B,X,Select,Start,R,L"/>
+
+    <switches default="FF,FF,F7,97">
+        <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
+        <dip name="Difficulty" bits="16,17" ids="Easy,Medium,Hard,Hardest" values="3,0,1,2"/>
+        <dip name="Demo Sounds" bits="19" ids="Off,On" values="1,0"/>
+        <dip name="Freeze" bits="20" ids="Off,On" values="1,0"/>
+        <dip name="Rack Test" bits="21" ids="Off,On" values="1,0"/>
+        <dip name="Cabinet" bits="23" ids="Upright,Cocktail" values="1,0"/>
+        <dip name="Coinage" bits="24,26" ids="4C/1C,3C/1C,2C/1C,1C/1C,2C/3C,1C/2C,1C/3C,Free Play" values="4,2,6,7,1,3,5,0"/>
+        <dip name="Bonus Life" bits="27,29" ids="20K; 60K; Every 60K,20K and 60K Only,20K; 70K; Every 70K,20K; 80K; Every 80K,30K and 80K Only,30K; 100K; Every 100K,30K; 120K; Every 120K,None" values="4,3,2,6,7,1,5,0"/>
+        <dip name="Lives" bits="30,31" ids="2,3,4,5" values="0,2,1,3"/>
+    </switches>
+
+    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <rom index="0" md5="none" zip="galaga.zip|namco51.zip|namco54.zip">
+        <part crc="ab036c9f" name="gg1_1b.3p"/>
+        <part crc="d9232240" name="gg1_2b.3m"/>
+        <part crc="753ce503" name="gg1_3.2m"/>
+        <part crc="499fcc76" name="gg1_4b.2l"/>
+        <part repeat="0x4000">00</part>
+        <part crc="bb5caae3" name="gg1_5b.3f"/>
+        <part repeat="0x3000">00</part>
+        <part crc="d016686b" name="gg1_7b.2c"/>
+        <part repeat="0x3000">00</part>
+        <part crc="58b2f47c" name="gg1_9.4l"/>
+        <part repeat="0x3000">00</part>
+        <part crc="ad447c80" name="gg1_11.4d"/>
+        <part crc="dd6f1afc" name="gg1_10.4f"/>
+        <part repeat="0xC000">00</part>
+        <part crc="54603c6b" name="prom-5.5n"/>
+        <part crc="59b6edab" name="prom-4.2n"/>
+        <part crc="4a04bb6b" name="prom-3.1c"/>
+        <part repeat="0xDE0">00</part>
+        <part crc="7a2815b4" name="prom-1.1d"/>
+        <part repeat="0x9700">00</part>
+        <part crc="c2f57ef8" name="51xx.bin"/>
+        <part repeat="0x800">00</part>
+        <part crc="ee7357e0" name="54xx.bin"/>
+    </rom>
+
+    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <rom index="1">
+        <part>
+            00 90 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            00 04 00 03 00 0C 00 0B 05 0D 13 14 11 12 16 00
+            00 00 00 00 00 24 00 00 00 00 00 00 00 00 00 00
+        </part>
+    </rom>
+
+    <remark>Galaga (Namco Rev. B)</remark>
+    <mratimestamp>20261003000000</mratimestamp>
+</misterromdescription>

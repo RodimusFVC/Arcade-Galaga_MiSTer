@@ -12,6 +12,7 @@ module galaga_board
     input               clk,            // 49.152 MHz
     input               reset,
     input               pause,
+    input               crt_flip,
 
     input         [7:0] in0,            // 51xx input<0>/<1>
     input         [7:0] in1,            // 51xx input<2>/<3>
@@ -26,10 +27,10 @@ module galaga_board
     output        [7:0] video_r,
     output        [7:0] video_g,
     output        [7:0] video_b,
-    output reg          video_hs = 1'b1,
-    output reg          video_vs = 1'b1,
-    output reg          video_hblank = 1'b1,
-    output reg          video_vblank = 1'b1,
+    output              video_hs,
+    output              video_vs,
+    output              video_hblank,
+    output              video_vblank,
 
     output signed [15:0] audio
 );
@@ -59,33 +60,49 @@ selector rom_selector
     .mcu54_cs(mcu54_cs)
 );
 
-//------------------------------------------------------- Video timing --------------------------------------------------------//
+//------------------------------------------------------- Video --------------------------------------------------------------//
 
-// H counts 080-1FF (384), V counts 000-107 (264); 60.61 Hz. Visible: H 0C0-1DF wrapped (288), V 010-0EF (224)
-reg [8:0] hcnt = 9'h080;
-reg [8:0] vcnt = 9'd0;
+reg  [7:0] misc_latch = 8'h00;              // 3C LS259: Q0 IRQ1, Q1 IRQ2, Q2 NMION, Q3 RESET, Q5-7 MOD
+reg  [7:0] video_latch = 8'h00;             // 5K LS259: Q0-Q5 05xx starfield, Q7 flip
 
-wire line_step = ce6 & (hcnt == 9'h0BF);
+wire  [8:0] hcnt, vcnt;
+wire        line_step;
+wire [10:0] vram_addr_b;
+wire  [7:0] vram_q_b;
+wire  [9:0] spr_addr_b;
+wire  [7:0] ram1_q_b, ram2_q_b, ram3_q_b;
+wire        flip_screen;
 
-always @(posedge clk) begin
-    if (ce6) begin
-        hcnt <= (hcnt == 9'h1FF) ? 9'h080 : hcnt + 9'd1;
-        if (hcnt == 9'h0BF) vcnt <= (vcnt == 9'd263) ? 9'd0 : vcnt + 9'd1;
-
-        if      (hcnt == 9'h098) video_hblank <= 1'b1;
-        else if (hcnt == 9'h0F8) video_hblank <= 1'b0;
-
-        if      (hcnt == 9'h0AF) video_hs <= 1'b0;
-        else if (hcnt == 9'h0CC) video_hs <= 1'b1;
-
-        if (hcnt == 9'h0BF) begin
-            if      (vcnt == 9'd239) video_vblank <= 1'b1;
-            else if (vcnt == 9'd15)  video_vblank <= 1'b0;
-            if      (vcnt == 9'd259) video_vs <= 1'b0;
-            else if (vcnt == 9'd2)   video_vs <= 1'b1;
-        end
-    end
-end
+galaga_video video
+(
+    .clk(clk),
+    .sub(ph[2:0]),
+    .ce6(ce6),
+    .flip(flip_screen),
+    .star_ctl(video_latch[5:0]),
+    .crt_flip(crt_flip),
+    .hcnt(hcnt),
+    .vcnt(vcnt),
+    .line_step(line_step),
+    .vram_addr(vram_addr_b),
+    .vram_q(vram_q_b),
+    .spr_addr(spr_addr_b),
+    .spr1_q(ram1_q_b),
+    .spr2_q(ram2_q_b),
+    .spr3_q(ram3_q_b),
+    .ioctl_addr(ioctl_addr),
+    .ioctl_dout(ioctl_dout),
+    .gfx1_wr(ioctl_wr0 & gfx1_cs),
+    .gfx2_wr(ioctl_wr0 & gfx2_cs),
+    .prom_wr(ioctl_wr0 & prom_cs),
+    .red(video_r),
+    .green(video_g),
+    .blue(video_b),
+    .hblank(video_hblank),
+    .vblank(video_vblank),
+    .hsync(video_hs),
+    .vsync(video_vs)
+);
 
 wire vblank_start = line_step & (vcnt == 9'd239);       // first vblank line is 240 (MAME line 224)
 
@@ -172,10 +189,8 @@ wire cs_ram2   = ba[15:11] == 5'b10010;                          // 9000-97FF
 wire cs_ram3   = ba[15:11] == 5'b10011;                          // 9800-9FFF
 wire cs_vlatch = ba[15:11] == 5'b10100;                          // A000-A7FF
 
-// work / video RAMs (port B reserved for the video and hiscore)
+// work / video RAMs; port B: video (tile RAM, sprite registers)
 wire  [7:0] vram_q, ram1_q, ram2_q, ram3_q;
-wire [10:0] vram_addr_b = 11'd0;
-wire  [7:0] vram_q_b;
 
 dpram_dc #(.widthad_a(11)) vram
 (
@@ -186,21 +201,20 @@ dpram_dc #(.widthad_a(11)) vram
 dpram_dc #(.widthad_a(10)) ram1
 (
     .clock_a(clk), .address_a(ba[9:0]), .data_a(bdo), .wren_a(bwr & cs_ram1), .q_a(ram1_q),
-    .clock_b(clk), .address_b(10'd0), .data_b(8'h00), .wren_b(1'b0), .q_b()
+    .clock_b(clk), .address_b(spr_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(ram1_q_b)
 );
 
 dpram_dc #(.widthad_a(10)) ram2
 (
     .clock_a(clk), .address_a(ba[9:0]), .data_a(bdo), .wren_a(bwr & cs_ram2), .q_a(ram2_q),
-    .clock_b(clk), .address_b(10'd0), .data_b(8'h00), .wren_b(1'b0), .q_b()
+    .clock_b(clk), .address_b(spr_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(ram2_q_b)
 );
 
 dpram_dc #(.widthad_a(10)) ram3
 (
     .clock_a(clk), .address_a(ba[9:0]), .data_a(bdo), .wren_a(bwr & cs_ram3), .q_a(ram3_q),
-    .clock_b(clk), .address_b(10'd0), .data_b(8'h00), .wren_b(1'b0), .q_b()
+    .clock_b(clk), .address_b(spr_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(ram3_q_b)
 );
-
 
 // DIP switches: bit 0 = DSWB, bit 1 = DSWA, selected by A2-A0; the rest of the data bus floats high
 wire [7:0] dsw_q = {6'b111111, dswa[ba[2:0]], dswb[ba[2:0]]};
@@ -234,8 +248,6 @@ end
 
 //------------------------------------------------------- Latches, interrupts, watchdog ---------------------------------------//
 
-reg  [7:0] misc_latch = 8'h00;              // 3C LS259: Q0 IRQ1, Q1 IRQ2, Q2 NMION, Q3 RESET, Q5-7 MOD
-reg  [7:0] video_latch = 8'h00;             // 5K LS259: Q0-Q5 05xx starfield, Q7 flip
 reg  [3:0] wdog = 4'd0;
 reg        wdog_reset = 1'b0;
 
@@ -293,7 +305,7 @@ assign cpu_int_n   = {1'b1, ~irq2, ~irq1};
 assign cpu_nmi_n   = {~nmi3, 1'b1, n06_nmi_n};
 assign cpu_reset_n = {~sys_reset & misc_latch[3], ~sys_reset & misc_latch[3], ~sys_reset};
 
-wire flip_screen = video_latch[7];
+assign flip_screen = video_latch[7];
 
 //------------------------------------------------------- Namco customs ------------------------------------------------------//
 
@@ -363,11 +375,36 @@ namco_54xx n54
     .rom_data_in(ioctl_dout)
 );
 
-//------------------------------------------------------- Video / sound (to come) ---------------------------------------------//
+//------------------------------------------------------- Sound -------------------------------------------------------------//
 
-assign video_r = 8'd0;
-assign video_g = 8'd0;
-assign video_b = 8'd0;
-assign audio   = 16'sd0;
+wire signed [15:0] wsg_audio, n54_audio;
+
+namco_wsg3 wsg
+(
+    .clk(clk),
+    .reset(sys_reset),
+    .pause(pause),
+    .reg_addr(ba[4:0]),
+    .reg_data(bdo[3:0]),
+    .reg_wr(bwr & cs_wsg),
+    .wave_addr(ioctl_addr[7:0]),
+    .wave_data(ioctl_dout),
+    .wave_wr(ioctl_wr0 & wave_cs),
+    .audio(wsg_audio)
+);
+
+namco_54xx_snd #(.BOARD(0)) n54_snd
+(
+    .clk(clk),
+    .reset(sys_reset),
+    .pause(pause),
+    .o0_data(n54_o0),
+    .o1_data(n54_o1),
+    .r1_data(n54_r1),
+    .audio(n54_audio)
+);
+
+wire signed [16:0] mix = wsg_audio + n54_audio;
+assign audio = (mix > 17'sd32767) ? 16'sh7FFF : (mix < -17'sd32768) ? 16'sh8000 : mix[15:0];
 
 endmodule
