@@ -15,6 +15,7 @@ module namco_52xx
     input  wire        clk,
     input  wire        ena,        // MCU clock enable, 256 kHz machine cycles
     input  wire        reset_n,
+    input  wire        ram_clr,        // power-on MCU RAM clear
 
     input  wire        chip_sel,   // select pulse -> MCU IRQ
     input  wire        wr_en,
@@ -52,6 +53,7 @@ module namco_52xx
         .clock      (clk),
         .ena        (ena),
         .reset_n    (reset_n),
+        .ram_clr    (ram_clr),
 
         .r0_port_in (sample_data[3:0]), .r1_port_in (sample_data[7:4]), .r2_port_in (4'h0), .r3_port_in (4'h0),
         .r0_port_out(r0_out_unused), .r1_port_out(r1_out_unused),

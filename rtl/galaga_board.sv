@@ -69,7 +69,24 @@ wire ce_mcu = (mcu_div == 8'd191) & ~pause;
 assign ce_pix = ce6;
 
 reg  wdog_reset = 1'b0;
-wire sys_reset  = reset | wdog_reset;
+
+// Power-on RAM clear: after every core reset (game load, OSD reset) sweep 0000-FFFF writing 0 to the game RAMs the
+// loaded variant maps, CPUs and MCUs still held. The FPGA is not always reprogrammed between games, so RAM would keep
+// the previous game's contents; MAME starts every machine with cleared RAM. Dig Dug's EAROM is left alone.
+reg        clr_run = 1'b1;
+reg [15:0] clr_a   = 16'd0;
+always @(posedge clk) begin
+    if (reset) begin
+        clr_run <= 1'b1;
+        clr_a   <= 16'd0;
+    end
+    else if (clr_run) begin
+        clr_a <= clr_a + 16'd1;
+        if (clr_a == 16'hFFFF) clr_run <= 1'b0;
+    end
+end
+
+wire sys_reset  = reset | wdog_reset | clr_run;
 
 wire v_gb  = variant == 8'd1;
 wire v_gat = variant == 8'd2;
@@ -298,8 +315,8 @@ dpram_dc #(.widthad_a(14)) sub2_rom
 wire  [1:0] own  = ph[3:2];                 // bus owner this window (3 = idle)
 wire  [1:0] slot = ph[1:0];                 // 0 address out, 1 RAM data valid, 2 capture
 wire        own_ok = (own != 2'd3);
-wire [15:0] ba   = hs_access ? hs_address : own_ok ? cpu_a[own]  : 16'h0000;
-wire  [7:0] bdo  = hs_access ? hs_data_in : own_ok ? cpu_do[own] : 8'h00;
+wire [15:0] ba   = clr_run ? clr_a : hs_access ? hs_address : own_ok ? cpu_a[own]  : 16'h0000;
+wire  [7:0] bdo  = clr_run ? 8'h00 : hs_access ? hs_data_in : own_ok ? cpu_do[own] : 8'h00;
 wire        bmem = ~hs_access & own_ok & ~cpu_mreq_n[own] & cpu_rfsh_n[own];
 wire        brd  = bmem & ~cpu_rd_n[own];
 wire        bwr  = hs_access ? hs_write : bmem & ~cpu_wr_n[own] & (slot == 2'd0);   // one write strobe per bus cycle
@@ -332,6 +349,7 @@ wire cs_earom  = v_dd & (ba[15:11] == 5'b10111) & ~ba[6];        // Dig Dug B800
 wire cs_earomc = v_dd & (ba[15:11] == 5'b10111) &  ba[6];        // Dig Dug B840 EAROM control
 wire cs_xlatch = v_gat & cs_rom;                                  // Gatsbee 0000-0007 (mirrored) extra LS259
 wire [7:0] earom_q;
+wire       bwr_ram = bwr | clr_run;                               // RAM write strobe, incl. the power-on clear
 
 // work / video RAMs; port B: video (tile RAM, sprite registers)
 wire  [7:0] vram_q, ram1_q, ram2_q, ram3_q;
@@ -339,7 +357,7 @@ wire [10:0] ra = (v_xev | v_bo) ? ba[10:0] : {1'b0, ba[9:0]};   // Xevious / Bos
 
 dpram_dc #(.widthad_a(12)) vram
 (
-    .clock_a(clk), .address_a(v_bo ? ba[11:0] : {1'b0, ba[10:0]}), .data_a(bdo), .wren_a(bwr & cs_vram), .q_a(vram_q),
+    .clock_a(clk), .address_a(v_bo ? ba[11:0] : {1'b0, ba[10:0]}), .data_a(bdo), .wren_a(bwr_ram & cs_vram), .q_a(vram_q),
     .clock_b(clk), .address_b(v_bo ? bvram_addr_b : {1'b0, vram_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(vram_q_b)
 );
 
@@ -366,19 +384,19 @@ end
 
 dpram_dc #(.widthad_a(11)) ram1
 (
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr & cs_ram1), .q_a(ram1_q),
+    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram1), .q_a(ram1_q),
     .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram1_q_b)
 );
 
 dpram_dc #(.widthad_a(11)) ram2
 (
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr & cs_ram2), .q_a(ram2_q),
+    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram2), .q_a(ram2_q),
     .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram2_q_b)
 );
 
 dpram_dc #(.widthad_a(11)) ram3
 (
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr & cs_ram3), .q_a(ram3_q),
+    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram3), .q_a(ram3_q),
     .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram3_q_b)
 );
 
@@ -387,22 +405,22 @@ wire  [7:0] fgc_q, bgc_q, fgv_q, bgv_q;
 
 dpram_dc #(.widthad_a(11)) x_fgc
 (
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr & cs_fgc), .q_a(fgc_q),
+    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_fgc), .q_a(fgc_q),
     .clock_b(clk), .address_b(xfg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(fgc_q_b)
 );
 dpram_dc #(.widthad_a(11)) x_bgc
 (
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr & cs_bgc), .q_a(bgc_q),
+    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_bgc), .q_a(bgc_q),
     .clock_b(clk), .address_b(xbg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(bgc_q_b)
 );
 dpram_dc #(.widthad_a(11)) x_fgv
 (
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr & cs_fgv), .q_a(fgv_q),
+    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_fgv), .q_a(fgv_q),
     .clock_b(clk), .address_b(xfg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(fgv_q_b)
 );
 dpram_dc #(.widthad_a(11)) x_bgv
 (
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr & cs_bgv), .q_a(bgv_q),
+    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_bgv), .q_a(bgv_q),
     .clock_b(clk), .address_b(xbg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(bgv_q_b)
 );
 
@@ -615,16 +633,13 @@ wire [3:0] n06_chip_wr;
 wire [7:0] n51_q;
 wire       mcu_reset_n = ~sys_reset & misc_latch[3];
 
-// Xevious only: 06xx base tick anchored to MAME screen time 0 (raw x 0, y 0), so the per-frame 51xx poll ends
-// before the main CPU's 50xx request. Other boards keep the free-running tick they were verified with.
-wire n06_sync = v_xev && ce6 && hcnt == 9'h0F0 && vcnt == 9'd16;
 
 namco_06xx n06
 (
     .clk(clk),
     .reset(sys_reset),
     .pause(pause),
-    .sync(n06_sync),
+    .irq_on_access(~v_dd & ~v_bo),   // Galaga family + Xevious: Dar's access-triggered 06xx
     .cpu_dout(bdo),
     .data_wr(bwr & cs_06xx & ~ba[8]),
     .data_rd(brd & cs_06xx & ~ba[8]),
@@ -644,6 +659,7 @@ namco_06xx n06
 
 namco_51xx n51
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -664,6 +680,7 @@ namco_51xx n51
 // Xevious: 50xx on 06xx chip 2
 namco_50xx n50
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -681,6 +698,7 @@ namco_50xx n50
 
 namco_53xx n53
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -698,6 +716,7 @@ wire [3:0] n54_o0, n54_o1, n54_r1;
 
 namco_54xx n54
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -746,7 +765,7 @@ namco_06xx #(.BASE_DIV(8192)) n06b
     .clk(clk),
     .reset(sys_reset | ~v_bo),
     .pause(pause),
-    .sync(n06_sync),
+    .irq_on_access(1'b0),
     .cpu_dout(bdo),
     .data_wr(bwr & cs_06xx1 & ~ba[8]),
     .data_rd(brd & cs_06xx1 & ~ba[8]),
@@ -766,6 +785,7 @@ namco_06xx #(.BASE_DIV(8192)) n06b
 
 namco_50xx n50b
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(vreset_n),
@@ -808,6 +828,7 @@ wire n52_tc_n = ~(t555 < 14'd256);
 
 namco_52xx n52
 (
+    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(vreset_n),

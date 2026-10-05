@@ -19,6 +19,7 @@ module mb88 #(parameter IRQ_ENTRY_STALL = 0)   // IRQ-ENTRY-STALL-2026-09-23, se
     input  wire        clock,
     input  wire        ena,
     input  wire        reset_n,
+    input  wire        ram_clr,        // power-on RAM clear (see mb88_core)
 
     input  wire [3:0]  r0_port_in,  r1_port_in,  r2_port_in,  r3_port_in,
     output wire [3:0]  r0_port_out, r1_port_out, r2_port_out, r3_port_out,
@@ -79,6 +80,7 @@ module mb88 #(parameter IRQ_ENTRY_STALL = 0)   // IRQ-ENTRY-STALL-2026-09-23, se
         .ce        (ena),
         .ena_timer (ena_timer_int),
         .reset_n   (reset_n),
+        .ram_clr   (ram_clr),
 
         .prog_addr (rom_addr),
         .prog_data (rom_data),

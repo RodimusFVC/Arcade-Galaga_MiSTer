@@ -15,6 +15,7 @@ module namco_51xx
     input  wire        clk,
     input  wire        ena,        // MCU clock enable, 1.536 MHz
     input  wire        reset_n,
+    input  wire        ram_clr,        // power-on MCU RAM clear
 
     // 06xx side
     input  wire        chip_sel,   // select pulse -> MCU IRQ
@@ -73,6 +74,7 @@ module namco_51xx
         .clock      (clk),
         .ena        (ena),
         .reset_n    (reset_n),
+        .ram_clr    (ram_clr),
 
         .r0_port_in (r0_in), .r1_port_in (r1_in), .r2_port_in (r2_in), .r3_port_in (r3_in),
         .r0_port_out(r0_out), .r1_port_out(r1_out), .r2_port_out(r2_out), .r3_port_out(r3_out),

@@ -43,6 +43,7 @@
 module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
 (
     input  wire        clk, ce, reset_n,
+    input  wire        ram_clr,        // power-on: sweep RAM and stack to 0 while held (with reset_n low)
     input  wire        ena_timer,      // timer enable (already ÷32-prescaled externally)
 
     // internal mask ROM (external here so the co-sim / core can load it)
@@ -145,6 +146,7 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
     reg [7:0] sub8;            // 8-bit for subtract borrow (bit4 = borrow)
     reg [3:0] wr_val; reg [6:0] wr_addr; reg wr_en;
     integer i;
+    reg [6:0] clr_a = 7'd0;
 
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -157,8 +159,13 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
             retire<=0; illegal<=0; state<=S_FETCH; op1<=0; irq_stall<=2'd0;
             in_irq<=0; int_ack<=0; fetch_pc<=0; pending_irq<=0; TP<=0; tc_in_d<=1'b1;
             SBcount<=11'd0; serial_ps<=3'd0; serial_disabled<=1'b0;
-            // SP[] and ram[] intentionally NOT reset (MAME device_reset doesn't
-            // clear data RAM/stack; ROM inits RAM; Verilator zero-inits arrays).
+            // SP[] and ram[] survive a soft reset (MAME device_reset doesn't clear them); ram_clr is the power-on
+            // clear MAME gets from a fresh machine, needed because the FPGA is not reprogrammed between games
+            if (ram_clr) begin
+                ram[clr_a]      <= 4'd0;
+                SP[clr_a[1:0]]  <= 16'd0;
+                clr_a           <= clr_a + 7'd1;
+            end
         end else begin
           // external IRQ pin (active-low): logical rising edge sets pending if enabled
           iflag <= ~irq_n;
