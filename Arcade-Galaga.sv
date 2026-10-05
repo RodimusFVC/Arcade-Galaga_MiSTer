@@ -194,7 +194,22 @@ pll_cfg pll_cfg
 );
 
 // Hold the board in reset until the PLL is locked and the ROM download has finished
-wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked;
+// DIAG-REVERT-2026-10-05: original below, uncomment to restore (and delete dl_hold, hps_ready)
+// wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked;
+// DIAG-REVERT-2026-10-05 (dl_hold): HW-proven fix, commented out to test hps_ready alone. To restore: uncomment
+// this block and the dl_hold reset line below, delete the hps_ready lines.
+// Reset held ~0.34 s from FPGA configuration and past the last ioctl transfer (cured the Namco Galaga POST on HW)
+// reg [23:0] dl_hold = 24'hFFFFFF;
+// always @(posedge CLK_49M) begin
+// 	if (ioctl_download)       dl_hold <= 24'hFFFFFF;
+// 	else if (dl_hold != 24'd0) dl_hold <= dl_hold - 24'd1;
+// end
+// wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked | (dl_hold != 24'd0);
+// Main_MiSTer releases the sys reset on its first SPI access, before it sets status[0] for the MRA load:
+// hold the board from FPGA configuration until status[0] has been seen once
+reg hps_ready = 1'b0;
+always @(posedge CLK_49M) if (status[0]) hps_ready <= 1'b1;
+wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked | ~hps_ready;
 
 ///////////////////         Keyboard           //////////////////
 
