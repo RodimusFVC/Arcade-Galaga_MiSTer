@@ -17,6 +17,7 @@ module bosco_video
     input               clk,            // 49.152 MHz
     input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
     input               ce6,
+    input               pause,
     input         [8:0] hcnt,
     input         [8:0] vcnt,
     input               line_step,
@@ -142,6 +143,7 @@ namco_05xx stars
 (
     .clk(clk),
     .ce6(ce6),
+    .pause(pause),
     .line_step(line_step),
     .vcnt(vcnt),
     .win(v_vis && px0 < 9'd256),

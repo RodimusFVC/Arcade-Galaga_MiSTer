@@ -13,12 +13,15 @@ module galaga_video
     input               clk,            // 49.152 MHz
     input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
     input               ce6,
+    input               pause,
     input               dd,             // Dig Dug board
     input         [7:0] vlatch,         // video LS259. Galaga: Q0-Q5 05xx, Q7 flip.
                                         // Dig Dug: Q0-Q1 playfield select, Q2 text colour mode, Q3 playfield off,
                                         // Q4-Q5 playfield colour bank, Q7 flip
     input               gfx_bank,       // Gatsbee character bank
     input               crt_flip,       // OSD: mirror the picture both ways (stars keep raster order)
+    input  signed [3:0] h_adj,          // CRT position: HSYNC moved 2 pixels per step
+    input  signed [3:0] v_adj,          //               VSYNC moved 1 line per step
 
     output reg    [8:0] hcnt = 9'h080,
     output reg    [8:0] vcnt = 9'd0,
@@ -164,6 +167,7 @@ namco_05xx stars
 (
     .clk(clk),
     .ce6(ce6),
+    .pause(pause),
     .line_step(line_step),
     .vcnt(vcnt),
     .win(star_win),
@@ -308,12 +312,14 @@ end
 
 // blanking and syncs: sampled at the end of the pixel's fetch period, out with its colour one period later
 reg hb_d, vb_d, hs_d, vs_d;
+wire [8:0] hs_on = 9'h0A8 + {{4{h_adj[3]}}, h_adj, 1'b0};   // blanking stays put, only the sync pulses move
+wire [8:0] vs_on = 9'd248 + {{5{v_adj[3]}}, v_adj};
 always @(posedge clk) begin
     if (ce6) begin
         hb_d   <= ~h_vis;
         vb_d   <= ~v_vis;
-        hs_d   <= ~(hcnt >= 9'h0A8 && hcnt < 9'h0C8);      // 24 px front porch, 32 sync, 40 back porch (05xx notes)
-        vs_d   <= ~(vcnt >= 9'd248 && vcnt < 9'd256);      // 8 lines front porch, 8 sync, 24 back porch
+        hs_d   <= ~(hcnt >= hs_on && hcnt < hs_on + 9'd32);  // 24 px front porch, 32 sync, 40 back porch (05xx notes)
+        vs_d   <= ~(vcnt >= vs_on && vcnt < vs_on + 9'd8);   // 8 lines front porch, 8 sync, 24 back porch
         hblank <= hb_d;
         vblank <= vb_d;
         hsync  <= hs_d;

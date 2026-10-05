@@ -16,6 +16,7 @@ module namco_05xx
 (
     input               clk,
     input               ce6,
+    input               pause,          // freeze: every frame replays the one shown when pause began
     input               line_step,      // end of line: vcnt advances
     input         [8:0] vcnt,
     input               win,            // this pixel is inside the 256-pixel window of a visible line
@@ -31,6 +32,7 @@ module namco_05xx
 );
 
 reg  [15:0] lfsr = 16'h7FFF;
+reg  [15:0] lfsr_frame = 16'h7FFF;     // state at the start of the last frame drawn while running
 reg  [13:0] bulk = 14'd0;
 reg         en = 1'b0;
 reg   [1:0] sa, sb;
@@ -70,7 +72,11 @@ always @(posedge clk) begin
         sb <= set_b;
         sy <= speed_y;
         if (!enable) lfsr <= 16'h7FFF;
-        else bulk <= {11'd0, x_steps(speed_x)};
+        else begin
+            bulk <= {11'd0, x_steps(speed_x)};
+            if (pause) lfsr <= lfsr_frame;
+        end
+        if (!pause) lfsr_frame <= enable ? lfsr : 16'h7FFF;
     end
     else if (line_step && vcnt == 9'd239) begin
         if (en) bulk <= frame_steps(sy);

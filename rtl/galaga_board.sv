@@ -13,6 +13,8 @@ module galaga_board
     input               reset,
     input               pause,
     input               crt_flip,
+    input  signed [3:0] h_adj,          // CRT position: HSYNC moved 2 pixels per step
+    input  signed [3:0] v_adj,          //               VSYNC moved 1 line per step
     input         [7:0] variant,        // 0 Galaga, 1 Galaga bootleg (no 54xx: Gallag, Nebulous Bee), 2 Gatsbee,
                                         // 3 Dig Dug (also Zig Zag), 5 Xevious, 6 Xevious with bootleg ROM bit order (Xevios, Battles set 2),
                                         // 7 Bosconian
@@ -123,12 +125,15 @@ wire        flip_screen;
 galaga_video video
 (
     .clk(clk),
+    .pause(pause),
     .sub(ph[2:0]),
     .ce6(ce6),
     .dd(v_dd),
     .vlatch(video_latch),
     .gfx_bank(gat_bank),
     .crt_flip(crt_flip),
+    .h_adj(h_adj),
+    .v_adj(v_adj),
     .hcnt(hcnt),
     .vcnt(vcnt),
     .line_step(line_step),
@@ -193,6 +198,7 @@ xevious_video xvideo
 bosco_video bvideo
 (
     .clk(clk),
+    .pause(pause),
     .sub(ph[2:0]),
     .ce6(ce6),
     .hcnt(hcnt),

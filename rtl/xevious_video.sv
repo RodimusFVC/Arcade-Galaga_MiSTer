@@ -285,7 +285,7 @@ wire       e_dh = r_flags[1];
 wire       e_dw = r_flags[0];
 wire       e_fx = r_flags[2] ^ flip;
 wire       e_fy = r_flags[3] ^ flip;
-wire [8:0] e_code0 = r_flags[7] ? {3'b001, r_code[5:0]} : {1'b0, r_code};
+wire [8:0] e_code0 = r_flags[7] ? {3'b100, r_code[5:0]} : {1'b0, r_code};   // set 3 = codes 100-13F
 wire [9:0] e_sx = {1'b0, r_xmsb[0], r_x} - 10'd40;
 wire [9:0] e_sy = 10'd223 - {2'b00, r_y};
 

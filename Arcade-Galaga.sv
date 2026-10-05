@@ -114,6 +114,8 @@ localparam CONF_STR = {
 	"P1O[34],Orientation,Vert,Horz;",
 	"P1O[35],HDMI Flip,Off,On;",
 	"P1O[36],CRT Flip,Off,On;",
+	"P1O[46:43],H Position (CRT),0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"P1O[50:47],V Position (CRT),0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"P1O[39:37],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"-;",
 	"P2,Pause Options;",
@@ -127,7 +129,7 @@ localparam CONF_STR = {
 	"-;",
 	"R0,Reset;",
 	"J1,Btn 1,Btn 2,Btn 3,Btn 4,Coin,Start 1P,Start 2P,Pause,Btn 5,Btn 6,Rack Test;",
-	"jn,A,B,Y,X,Select,Start,R,L;",
+	"jn,A,B,X,Y,Select,Start,R,L;",
 	"V,v",`BUILD_DATE
 };
 
@@ -365,6 +367,8 @@ galaga_board board
 	.reset(reset),
 	.pause(pause_cpu),
 	.crt_flip(status[36]),
+	.h_adj(status[46:43]),
+	.v_adj(status[50:47]),
 	.variant(game_var),
 
 	.in0(in_port[0]),
