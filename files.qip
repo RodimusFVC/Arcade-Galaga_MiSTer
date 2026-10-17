@@ -1,5 +1,6 @@
 set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008
 
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/chip_pool_pkg.sv
 set_global_assignment -name SYSTEMVERILOG_FILE Arcade-Galaga.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/galaga_board.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/galaga_video.sv

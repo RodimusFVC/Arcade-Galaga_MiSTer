@@ -15,7 +15,6 @@ module namco_54xx
     input  wire        clk,
     input  wire        ena,        // MCU clock enable, 1.536 MHz
     input  wire        reset_n,
-    input  wire        ram_clr,        // power-on MCU RAM clear
 
     // 06xx side
     input  wire        chip_sel,   // select pulse -> MCU IRQ
@@ -30,7 +29,10 @@ module namco_54xx
     // 0x400 mask ROM load (write strobe already decoded by the board)
     input  wire        rom_wr,
     input  wire  [9:0] rom_addr_in,
-    input  wire  [7:0] rom_data_in
+    input  wire  [7:0] rom_data_in,
+    // the shared MB88 (rtl/galaga_board.sv pool)
+    output chip_pool_pkg::mb88_i_t mb88_i,
+    input  chip_pool_pkg::mb88_o_t mb88_o
 );
 
     // command latch
@@ -44,9 +46,7 @@ module namco_54xx
     wire [3:0] r0_in = latched_cmd[3:0];
     wire [3:0] r1_in = 4'h0;            // R1 is an output
     wire [3:0] r2_in = 4'h0, r3_in = 4'h0;
-    wire [3:0] r0_out_unused, r2_out_unused, r3_out_unused;
     wire [3:0] r1_out;
-    wire [3:0] p_out_unused;
 
     wire [3:0] oh_w, ol_w;
     assign discrete_o0 = ol_w;
@@ -56,33 +56,19 @@ module namco_54xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    mb88 #(.IRQ_ENTRY_STALL(3)) u_mcu   // MAME-exact interrupt entry timing, see mb88_core.sv
-    (
-        .clock      (clk),
-        .ena        (ena),
-        .reset_n    (reset_n),
-        .ram_clr    (ram_clr),
-
-        .r0_port_in (r0_in), .r1_port_in (r1_in), .r2_port_in (r2_in), .r3_port_in (r3_in),
-        .r0_port_out(r0_out_unused), .r1_port_out(r1_out),
-        .r2_port_out(r2_out_unused), .r3_port_out(r3_out_unused),
-        .k_port_in  (k_in),
-        .ol_port_out(ol_w), .oh_port_out(oh_w),
-        .o_wr       (),
-        .p_port_out (p_out_unused),
-
-        .stby_n     (1'b1),
-        .tc_n       (1'b1),
-        .irq_n      (~chip_sel),
-        .sc_in_n    (1'b1),
-        .si_n       (1'b1),
-        .sc_out_n   (),
-        .so_n       (),
-        .to_n       (),
-
-        .rom_addr   (rom_addr),
-        .rom_data   (rom_data)
-    );
+    // MB8844: the shared MB88 in rtl/galaga_board.sv (pool slot built with IRQ_ENTRY_STALL 3, MAME-exact
+    // interrupt entry timing, see mb88_core.sv)
+    assign mb88_i.ena     = ena;
+    assign mb88_i.reset_n = reset_n;
+    assign mb88_i.k       = k_in;
+    assign mb88_i.r_in    = {r3_in, r2_in, r1_in, r0_in};
+    assign mb88_i.irq_n   = ~chip_sel;
+    assign mb88_i.tc_n    = 1'b1;
+    assign mb88_i.si_n    = 1'b1;
+    assign mb88_i.rom_d   = rom_data;
+    assign rom_addr       = mb88_o.rom_a;
+    assign {oh_w, ol_w}   = mb88_o.o;
+    assign r1_out         = mb88_o.r_out[7:4];
 
     dpram_dc #(.widthad_a(10)) rom_54xx
     (

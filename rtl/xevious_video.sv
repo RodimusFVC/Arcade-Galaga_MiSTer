@@ -361,7 +361,7 @@ always @(posedge clk) begin
         tgt_buf <= ~vcnt[0];
         s_num   <= 6'd0;
         f_cnt   <= 2'd0;
-        st      <= S_FETCH;
+        st      <= (vcnt >= 9'd15 && vcnt < 9'd239) ? S_FETCH : S_IDLE;   // visible lines only: blank lines never clear their half
     end
     else case (st)
         S_FETCH: begin

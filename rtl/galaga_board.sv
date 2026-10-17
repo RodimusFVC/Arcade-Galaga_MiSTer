@@ -252,7 +252,10 @@ assign video_b = v_xev ? x_b : v_bo ? o_b : g_b;
 
 wire vblank_start = line_step & (vcnt == 9'd239);       // first vblank line is 240 (MAME line 224)
 
-//------------------------------------------------------- CPUs ----------------------------------------------------------------//
+/////////////////////////////  Shared CPU / sound chip pool  /////////////////////////////
+
+// Pool chips are driven only through their chip_pool_pkg buses. Exception to the pool's core-reset rule: the Z80s
+// and MB88s keep the board's own reset lines (watchdog, RAM clear, misc latch Q3 / video latch Q7).
 
 // Three Z80s on one shared bus. Each owns a 4-clock window of every 16-clock CPU cycle: ph[3:2] = 0 main, 1 sub, 2 sub2.
 wire [15:0] cpu_a[3];
@@ -262,30 +265,103 @@ reg   [7:0] cpu_di[3];
 wire  [2:0] cpu_int_n, cpu_nmi_n;
 wire  [2:0] cpu_reset_n;
 
-genvar gi;
+// z80_0: main CPU, z80_1: sub CPU, z80_2: sub 2 (sound) CPU - every game (Galaga, Dig Dug, Xevious, Bosconian)
+chip_pool_pkg::z80_i_t z80_0_i, z80_1_i, z80_2_i;
+chip_pool_pkg::z80_o_t z80_0_o, z80_1_o, z80_2_o;
+
+wire [15:0] z80_0_a, z80_1_a, z80_2_a;
+wire  [7:0] z80_0_do, z80_1_do, z80_2_do;
+wire        z80_0_m1_n, z80_0_mreq_n, z80_0_iorq_n, z80_0_rd_n, z80_0_wr_n, z80_0_rfsh_n;
+wire        z80_1_m1_n, z80_1_mreq_n, z80_1_iorq_n, z80_1_rd_n, z80_1_wr_n, z80_1_rfsh_n;
+wire        z80_2_m1_n, z80_2_mreq_n, z80_2_iorq_n, z80_2_rd_n, z80_2_wr_n, z80_2_rfsh_n;
+
+T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_0
+(
+    .RESET_n(cpu_reset_n[0]), .CLK_n(clk), .CLKEN(z80_0_i.ce), .WAIT_n(1'b1), .INT_n(z80_0_i.int_n), .NMI_n(z80_0_i.nmi_n), .BUSRQ_n(1'b1),
+    .M1_n(z80_0_m1_n), .MREQ_n(z80_0_mreq_n), .IORQ_n(z80_0_iorq_n), .RD_n(z80_0_rd_n), .WR_n(z80_0_wr_n), .RFSH_n(z80_0_rfsh_n),
+    .HALT_n(), .BUSAK_n(), .A(z80_0_a), .DI(z80_0_i.di), .DO(z80_0_do)
+);
+
+assign z80_0_o.a = z80_0_a;           assign z80_0_o.dout = z80_0_do;
+assign z80_0_o.m1_n = z80_0_m1_n;     assign z80_0_o.mreq_n = z80_0_mreq_n; assign z80_0_o.iorq_n = z80_0_iorq_n;
+assign z80_0_o.rd_n = z80_0_rd_n;     assign z80_0_o.wr_n = z80_0_wr_n;     assign z80_0_o.rfsh_n = z80_0_rfsh_n;
+
+T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_1
+(
+    .RESET_n(cpu_reset_n[1]), .CLK_n(clk), .CLKEN(z80_1_i.ce), .WAIT_n(1'b1), .INT_n(z80_1_i.int_n), .NMI_n(z80_1_i.nmi_n), .BUSRQ_n(1'b1),
+    .M1_n(z80_1_m1_n), .MREQ_n(z80_1_mreq_n), .IORQ_n(z80_1_iorq_n), .RD_n(z80_1_rd_n), .WR_n(z80_1_wr_n), .RFSH_n(z80_1_rfsh_n),
+    .HALT_n(), .BUSAK_n(), .A(z80_1_a), .DI(z80_1_i.di), .DO(z80_1_do)
+);
+
+assign z80_1_o.a = z80_1_a;           assign z80_1_o.dout = z80_1_do;
+assign z80_1_o.m1_n = z80_1_m1_n;     assign z80_1_o.mreq_n = z80_1_mreq_n; assign z80_1_o.iorq_n = z80_1_iorq_n;
+assign z80_1_o.rd_n = z80_1_rd_n;     assign z80_1_o.wr_n = z80_1_wr_n;     assign z80_1_o.rfsh_n = z80_1_rfsh_n;
+
+T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_2
+(
+    .RESET_n(cpu_reset_n[2]), .CLK_n(clk), .CLKEN(z80_2_i.ce), .WAIT_n(1'b1), .INT_n(z80_2_i.int_n), .NMI_n(z80_2_i.nmi_n), .BUSRQ_n(1'b1),
+    .M1_n(z80_2_m1_n), .MREQ_n(z80_2_mreq_n), .IORQ_n(z80_2_iorq_n), .RD_n(z80_2_rd_n), .WR_n(z80_2_wr_n), .RFSH_n(z80_2_rfsh_n),
+    .HALT_n(), .BUSAK_n(), .A(z80_2_a), .DI(z80_2_i.di), .DO(z80_2_do)
+);
+
+assign z80_2_o.a = z80_2_a;           assign z80_2_o.dout = z80_2_do;
+assign z80_2_o.m1_n = z80_2_m1_n;     assign z80_2_o.mreq_n = z80_2_mreq_n; assign z80_2_o.iorq_n = z80_2_iorq_n;
+assign z80_2_o.rd_n = z80_2_rd_n;     assign z80_2_o.wr_n = z80_2_wr_n;     assign z80_2_o.rfsh_n = z80_2_rfsh_n;
+
+// the board's CPU-side signals
+assign z80_0_i.ce = ce_cpu;  assign z80_0_i.int_n = cpu_int_n[0];  assign z80_0_i.nmi_n = cpu_nmi_n[0];  assign z80_0_i.di = cpu_di[0];
+assign z80_1_i.ce = ce_cpu;  assign z80_1_i.int_n = cpu_int_n[1];  assign z80_1_i.nmi_n = cpu_nmi_n[1];  assign z80_1_i.di = cpu_di[1];
+assign z80_2_i.ce = ce_cpu;  assign z80_2_i.int_n = cpu_int_n[2];  assign z80_2_i.nmi_n = cpu_nmi_n[2];  assign z80_2_i.di = cpu_di[2];
+
+assign cpu_a[0] = z80_0_o.a;  assign cpu_do[0] = z80_0_o.dout;
+assign cpu_a[1] = z80_1_o.a;  assign cpu_do[1] = z80_1_o.dout;
+assign cpu_a[2] = z80_2_o.a;  assign cpu_do[2] = z80_2_o.dout;
+assign cpu_m1_n   = {z80_2_o.m1_n,   z80_1_o.m1_n,   z80_0_o.m1_n};
+assign cpu_mreq_n = {z80_2_o.mreq_n, z80_1_o.mreq_n, z80_0_o.mreq_n};
+assign cpu_iorq_n = {z80_2_o.iorq_n, z80_1_o.iorq_n, z80_0_o.iorq_n};
+assign cpu_rd_n   = {z80_2_o.rd_n,   z80_1_o.rd_n,   z80_0_o.rd_n};
+assign cpu_wr_n   = {z80_2_o.wr_n,   z80_1_o.wr_n,   z80_0_o.wr_n};
+assign cpu_rfsh_n = {z80_2_o.rfsh_n, z80_1_o.rfsh_n, z80_0_o.rfsh_n};
+
+// MB88 x 5 (Namco custom MCUs, rtl/cpu/mb88_sv): the namco_5Xxx modules drive them
+//   mb88_0: 51xx (every game)
+//   mb88_1: 50xx on the main 06xx (Xevious, Bosconian)
+//   mb88_2: 54xx (Galaga, Xevious, Bosconian) - IRQ_ENTRY_STALL 3, the 54xx's own setting
+//   mb88_3: second 50xx (Bosconian)
+//   mb88_4: 52xx (Bosconian), 53xx (Dig Dug)
+chip_pool_pkg::mb88_i_t n51_mb88_i, n50_mb88_i, n54_mb88_i, n50b_mb88_i, n52_mb88_i, n53_mb88_i;
+chip_pool_pkg::mb88_i_t [4:0] mb88_i;
+chip_pool_pkg::mb88_o_t [4:0] mb88_o;
+
+assign mb88_i[0] = n51_mb88_i;
+assign mb88_i[1] = n50_mb88_i;
+assign mb88_i[2] = n54_mb88_i;
+assign mb88_i[3] = n50b_mb88_i;
+assign mb88_i[4] = v_dd ? n53_mb88_i : n52_mb88_i;
+
+genvar mi;
 generate
-    for (gi = 0; gi < 3; gi++) begin : cpu
-        T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80
+    for (mi = 0; mi < 5; mi = mi + 1) begin : g_mb88
+        chip_pool_pkg::mb88_i_t i;
+        assign i = mb88_i[mi];
+        wire  [3:0] r0, r1, r2, r3, ol, oh, p;
+        wire        o_wr;
+        wire [10:0] rom_a;
+        mb88 #(.IRQ_ENTRY_STALL(mi == 2 ? 3 : 0)) mb88
         (
-            .RESET_n(cpu_reset_n[gi]),
-            .CLK_n(clk),
-            .CLKEN(ce_cpu),
-            .WAIT_n(1'b1),
-            .INT_n(cpu_int_n[gi]),
-            .NMI_n(cpu_nmi_n[gi]),
-            .BUSRQ_n(1'b1),
-            .M1_n(cpu_m1_n[gi]),
-            .MREQ_n(cpu_mreq_n[gi]),
-            .IORQ_n(cpu_iorq_n[gi]),
-            .RD_n(cpu_rd_n[gi]),
-            .WR_n(cpu_wr_n[gi]),
-            .RFSH_n(cpu_rfsh_n[gi]),
-            .HALT_n(),
-            .BUSAK_n(),
-            .A(cpu_a[gi]),
-            .DI(cpu_di[gi]),
-            .DO(cpu_do[gi])
+            .clock(clk), .ena(i.ena), .reset_n(i.reset_n), .ram_clr(reset),
+            .r0_port_in(i.r_in[3:0]), .r1_port_in(i.r_in[7:4]), .r2_port_in(i.r_in[11:8]), .r3_port_in(i.r_in[15:12]),
+            .r0_port_out(r0), .r1_port_out(r1), .r2_port_out(r2), .r3_port_out(r3),
+            .k_port_in(i.k), .ol_port_out(ol), .oh_port_out(oh), .o_wr(o_wr), .p_port_out(p),
+            .stby_n(1'b1), .tc_n(i.tc_n), .irq_n(i.irq_n), .sc_in_n(1'b1), .si_n(i.si_n),
+            .sc_out_n(), .so_n(), .to_n(),
+            .rom_addr(rom_a), .rom_data(i.rom_d)
         );
+        assign mb88_o[mi].r_out = {r3, r2, r1, r0};
+        assign mb88_o[mi].o     = {oh, ol};
+        assign mb88_o[mi].o_wr  = o_wr;
+        assign mb88_o[mi].p     = p;
+        assign mb88_o[mi].rom_a = rom_a;
     end
 endgenerate
 
@@ -659,7 +735,6 @@ namco_06xx n06
 
 namco_51xx n51
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -674,13 +749,14 @@ namco_51xx n51
     .rom_wr(ioctl_wr0 & mcu51_cs),
     .rom_addr_in(ioctl_addr[9:0]),
     .rom_data_in(ioctl_dout),
-    .vblank(video_vblank)
+    .vblank(video_vblank),
+    .mb88_i(n51_mb88_i),
+    .mb88_o(mb88_o[0])
 );
 
 // Xevious: 50xx on 06xx chip 2
 namco_50xx n50
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -691,14 +767,15 @@ namco_50xx n50
     .wr_data(n06_chip_dout),
     .rom_wr(ioctl_wr0 & mcu50_cs),
     .rom_addr_in(ioctl_addr[10:0]),
-    .rom_data_in(ioctl_dout)
+    .rom_data_in(ioctl_dout),
+    .mb88_i(n50_mb88_i),
+    .mb88_o(mb88_o[1])
 );
 
 // Dig Dug: 53xx DIP reader on 06xx chip 1; K3-K1 = misc latch Q7-Q5
 
 namco_53xx n53
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -709,14 +786,15 @@ namco_53xx n53
     .in_b(dswb),
     .rom_wr(ioctl_wr0 & mcu53_cs),
     .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout)
+    .rom_data_in(ioctl_dout),
+    .mb88_i(n53_mb88_i),
+    .mb88_o(mb88_o[4])
 );
 
 wire [3:0] n54_o0, n54_o1, n54_r1;
 
 namco_54xx n54
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(mcu_reset_n),
@@ -728,7 +806,9 @@ namco_54xx n54
     .discrete_r1(n54_r1),
     .rom_wr(ioctl_wr0 & mcu54_cs),
     .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout)
+    .rom_data_in(ioctl_dout),
+    .mb88_i(n54_mb88_i),
+    .mb88_o(mb88_o[2])
 );
 
 //------------------------------------------------------- Sound -------------------------------------------------------------//
@@ -785,7 +865,6 @@ namco_06xx #(.BASE_DIV(8192)) n06b
 
 namco_50xx n50b
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(vreset_n),
@@ -796,7 +875,9 @@ namco_50xx n50b
     .wr_data(n06b_chip_dout),
     .rom_wr(ioctl_wr0 & mcu50_cs),
     .rom_addr_in(ioctl_addr[10:0]),
-    .rom_data_in(ioctl_dout)
+    .rom_data_in(ioctl_dout),
+    .mb88_i(n50b_mb88_i),
+    .mb88_o(mb88_o[3])
 );
 
 // 52xx speech: SI = GND (A12-A15 are active-low chip selects of the three 4K ROMs), TC = 555 astable
@@ -828,7 +909,6 @@ wire n52_tc_n = ~(t555 < 14'd256);
 
 namco_52xx n52
 (
-    .ram_clr(reset),
     .clk(clk),
     .ena(ce_mcu),
     .reset_n(vreset_n),
@@ -842,7 +922,9 @@ namco_52xx n52
     .sample_data(sp_ff_d ? 8'hFF : sp_q),
     .rom_wr(ioctl_wr0 & mcu52_cs),
     .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout)
+    .rom_data_in(ioctl_dout),
+    .mb88_i(n52_mb88_i),
+    .mb88_o(mb88_o[4])
 );
 
 wire signed [31:0] n52_volts;

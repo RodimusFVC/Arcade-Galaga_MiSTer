@@ -14,7 +14,6 @@ module namco_50xx
     input  wire        clk,
     input  wire        ena,        // MCU clock enable, 256 kHz machine cycles
     input  wire        reset_n,
-    input  wire        ram_clr,        // power-on MCU RAM clear
 
     // 06xx side
     input  wire        chip_sel,   // select pulse -> MCU IRQ
@@ -26,7 +25,10 @@ module namco_50xx
     // 0x800 mask ROM load (write strobe already decoded by the board)
     input  wire        rom_wr,
     input  wire [10:0] rom_addr_in,
-    input  wire  [7:0] rom_data_in
+    input  wire  [7:0] rom_data_in,
+    // the shared MB88 (rtl/galaga_board.sv pool)
+    output chip_pool_pkg::mb88_i_t mb88_i,
+    input  chip_pool_pkg::mb88_o_t mb88_o
 );
 
     reg [7:0] cmd;
@@ -35,39 +37,22 @@ module namco_50xx
         else if (wr_en) cmd <= wr_data;
     end
 
-    wire [3:0] r0_out, r1_out, r2_out, r3_out;  // unused
-    wire [3:0] p_out_unused;
     wire [3:0] oh_w, ol_w;
 
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    mb88 u_mcu
-    (
-        .clock      (clk),
-        .ena        (ena),
-        .reset_n    (reset_n),
-        .ram_clr    (ram_clr),
-
-        .r0_port_in (cmd[3:0]), .r1_port_in (4'h0), .r2_port_in ({3'b000, rw_in}), .r3_port_in (4'h0),
-        .r0_port_out(r0_out), .r1_port_out(r1_out), .r2_port_out(r2_out), .r3_port_out(r3_out),
-        .k_port_in  (cmd[7:4]),
-        .ol_port_out(ol_w), .oh_port_out(oh_w),
-        .o_wr       (),
-        .p_port_out (p_out_unused),
-
-        .stby_n     (1'b1),
-        .tc_n       (1'b1),
-        .irq_n      (~chip_sel),
-        .sc_in_n    (1'b1),
-        .si_n       (1'b1),
-        .sc_out_n   (),
-        .so_n       (),
-        .to_n       (),
-
-        .rom_addr   (rom_addr),
-        .rom_data   (rom_data)
-    );
+    // MB8842: the shared MB88 in rtl/galaga_board.sv
+    assign mb88_i.ena     = ena;
+    assign mb88_i.reset_n = reset_n;
+    assign mb88_i.k       = cmd[7:4];
+    assign mb88_i.r_in    = {4'h0, 3'b000, rw_in, 4'h0, cmd[3:0]};   // R3, R2, R1, R0
+    assign mb88_i.irq_n   = ~chip_sel;
+    assign mb88_i.tc_n    = 1'b1;
+    assign mb88_i.si_n    = 1'b1;
+    assign mb88_i.rom_d   = rom_data;
+    assign rom_addr       = mb88_o.rom_a;
+    assign {oh_w, ol_w}   = mb88_o.o;
 
     assign data_out = {oh_w, ol_w};
 

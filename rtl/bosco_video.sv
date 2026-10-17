@@ -342,7 +342,7 @@ always @(posedge clk) begin
         tgt_y   <= crt_flip ? 8'd255 - (vcnt[7:0] + 8'd1) : vcnt[7:0] + 8'd1;
         tgt_buf <= ~vcnt[0];
         e_n     <= 4'd0;
-        est     <= E_SPR;
+        est     <= (vcnt >= 9'd15 && vcnt < 9'd239) ? E_SPR : E_IDLE;    // visible lines only: blank lines never clear their half
     end
     else case (est)
         E_SPR: begin

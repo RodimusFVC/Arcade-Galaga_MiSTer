@@ -15,7 +15,6 @@ module namco_51xx
     input  wire        clk,
     input  wire        ena,        // MCU clock enable, 1.536 MHz
     input  wire        reset_n,
-    input  wire        ram_clr,        // power-on MCU RAM clear
 
     // 06xx side
     input  wire        chip_sel,   // select pulse -> MCU IRQ
@@ -35,7 +34,10 @@ module namco_51xx
     input  wire  [9:0] rom_addr_in,
     input  wire  [7:0] rom_data_in,
 
-    input  wire        vblank      // -> TC, counted on its falling edge
+    input  wire        vblank,     // -> TC, counted on its falling edge
+    // the shared MB88 (rtl/galaga_board.sv pool)
+    output chip_pool_pkg::mb88_i_t mb88_i,
+    input  chip_pool_pkg::mb88_o_t mb88_o
 );
 
     // Shared mailbox: a CPU write wins; otherwise each MCU outO instruction latches its O port once
@@ -61,40 +63,25 @@ module namco_51xx
     wire [3:0] r1_in = in_a[7:4];
     wire [3:0] r2_in = in_b[3:0];
     wire [3:0] r3_in = in_b[7:4];
-    wire [3:0] r0_out, r1_out, r2_out, r3_out;  // unused
-
     wire [3:0] oh_w, ol_w;
     assign o_out_w = {oh_w, ol_w};
 
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    mb88 u_mcu
-    (
-        .clock      (clk),
-        .ena        (ena),
-        .reset_n    (reset_n),
-        .ram_clr    (ram_clr),
-
-        .r0_port_in (r0_in), .r1_port_in (r1_in), .r2_port_in (r2_in), .r3_port_in (r3_in),
-        .r0_port_out(r0_out), .r1_port_out(r1_out), .r2_port_out(r2_out), .r3_port_out(r3_out),
-        .k_port_in  (k_in),
-        .ol_port_out(ol_w), .oh_port_out(oh_w),
-        .o_wr       (o_wr_w),
-        .p_port_out (p_port_out),
-
-        .stby_n     (1'b1),
-        .tc_n       (~vblank),          // MAME: TC asserted while not in vblank
-        .irq_n      (~chip_sel),
-        .sc_in_n    (1'b1),
-        .si_n       (1'b1),
-        .sc_out_n   (),
-        .so_n       (),
-        .to_n       (),
-
-        .rom_addr   (rom_addr),
-        .rom_data   (rom_data)
-    );
+    // MB8843: the shared MB88 in rtl/galaga_board.sv
+    assign mb88_i.ena     = ena;
+    assign mb88_i.reset_n = reset_n;
+    assign mb88_i.k       = k_in;
+    assign mb88_i.r_in    = {r3_in, r2_in, r1_in, r0_in};
+    assign mb88_i.irq_n   = ~chip_sel;
+    assign mb88_i.tc_n    = ~vblank;          // MAME: TC asserted while not in vblank
+    assign mb88_i.si_n    = 1'b1;
+    assign mb88_i.rom_d   = rom_data;
+    assign rom_addr       = mb88_o.rom_a;
+    assign {oh_w, ol_w}   = mb88_o.o;
+    assign o_wr_w         = mb88_o.o_wr;
+    assign p_port_out     = mb88_o.p;
 
     // 1K mask ROM (rom_addr is 11 bits wide for the MB8841 family)
     dpram_dc #(.widthad_a(10)) rom_51xx
