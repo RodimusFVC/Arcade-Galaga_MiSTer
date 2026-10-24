@@ -43,7 +43,8 @@ wire        ioctl_upload_req;
 wire  [7:0] ioctl_din;
 wire        ioctl_wr;
 wire  [7:0] ioctl_index;
-wire [24:0] ioctl_addr;
+wire [26:0] ioctl_addr27;                     // hps_io's full address: the artwork download can pass 32 MB
+wire [24:0] ioctl_addr = ioctl_addr27[24:0];  // every other ioctl user
 wire  [7:0] ioctl_dout;
 wire [15:0] joystick_0, joystick_1;
 wire [21:0] gamma_bus;
@@ -102,8 +103,11 @@ wire vert_view = game_vert & ~status[34];
 
 wire [1:0] ar = status[33:32];
 
-assign VIDEO_ARX = (!ar) ? (vert_view ? 12'd3 : 12'd4) : (ar - 1'd1);
-assign VIDEO_ARY = (!ar) ? (vert_view ? 12'd4 : 12'd3) : 12'd0;
+wire        art_fb;                // artwork framebuffer on HDMI: square canvas pixels
+wire        art_wait, art_avail;
+wire [11:0] art_cw, art_ch;
+assign VIDEO_ARX = (!ar) ? (art_fb ? art_cw : vert_view ? 12'd3 : 12'd4) : (ar - 1'd1);
+assign VIDEO_ARY = (!ar) ? (art_fb ? art_ch : vert_view ? 12'd4 : 12'd3) : 12'd0;
 
 // Status bits start at 32 so the old Galaga core's saved settings (bits 2-31) can't leak in
 `include "build_id.v"
@@ -118,6 +122,16 @@ localparam CONF_STR = {
 	"P1O[50:47],V Position (CRT),0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
 	"P1O[39:37],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"-;",
+	"H1P4,Game Options;",
+	"H1P4-,Artwork (MAME layout views);",
+	"H1P4O[54:51],View,Off,View 1,View 2,View 3,View 4,View 5,View 6,View 7,View 8,View 9,View 10,View 11,View 12,View 13,View 14,View 15;",
+	"H1P4O[55],Backdrop,On,Off;",
+	"H1P4O[56],Overlay,On,Off;",
+	"H1P4O[57],Bezel,On,Off;",
+	"H1P4O[60],Control Panel,On,Off;",
+	"H1P4O[58],Side Art,On,Off;",
+	"H1P4O[59],Zoom to Screen,Off,On;",
+	"H1-;",
 	"P2,Pause Options;",
 	"P2O[40],Pause when OSD is open,On,Off;",
 	"P2O[41],Dim video after 10s,On,Off;",
@@ -146,16 +160,17 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({direct_video}),
+	.status_menumask({~art_avail, direct_video}),
 
 	.ioctl_download(ioctl_download),
 	.ioctl_upload(ioctl_upload),
 	.ioctl_upload_req(ioctl_upload_req),
 	.ioctl_wr(ioctl_wr),
-	.ioctl_addr(ioctl_addr),
+	.ioctl_addr(ioctl_addr27),
 	.ioctl_dout(ioctl_dout),
 	.ioctl_din(ioctl_din),
 	.ioctl_index(ioctl_index),
+	.ioctl_wait(art_wait),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
@@ -353,11 +368,71 @@ pause #(8,8,8,49) pause
 wire hs, vs;
 wire [7:0] r, g, b;
 wire ce_pix;
+wire        bd_hs, bd_vs, bd_hbl, bd_vbl;
+wire  [7:0] bd_r, bd_g, bd_b;
+
+// MAME artwork (ioctl index 5, OSD Artwork page): native composite on the core video (one pixel late),
+// full view through the DDR3 framebuffer on HDMI. 7-bit colour codes: Galaga's starfield puts ~70 colours on screen.
+wire        art_run, art_ddr;
+wire [31:0] art_fb_base;
+wire  [7:0] art_burstcnt, art_be;
+wire [28:0] art_addr;
+wire [63:0] art_din;
+wire        art_rd, art_we, art_clk;
+artwork #(.IDX(8'd5), .CODE_BITS(7)) artwork
+(
+	.clk(CLK_49M),
+	.sel(status[54:51]), .layer_off({status[60], status[57:55]}), .side_off(status[58]), .zoom(status[59]),
+	.crt_flip(status[36]), .hdmi_flip(status[35]), .turn(status[34]), .avail(art_avail),
+	.hdmi_w(HDMI_WIDTH), .hdmi_h(HDMI_HEIGHT),
+	.ioctl_download(ioctl_download), .ioctl_index(ioctl_index), .ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr27), .ioctl_dout(ioctl_dout), .ioctl_wait(art_wait),
+	.ce_pix(ce_pix),
+	.hs_in(bd_hs), .vs_in(bd_vs), .hblank_in(bd_hbl), .vblank_in(bd_vbl), .rgb_in({bd_r, bd_g, bd_b}),
+	.hs_out(hs), .vs_out(vs), .hblank_out(hblank), .vblank_out(vblank), .rgb_out({r, g, b}),
+	.running(art_run), .ddr_owner(art_ddr), .canvas_w(art_cw), .canvas_h(art_ch),
+	.fb_base(art_fb_base), .fb_vbl(FB_VBL),
+	.DDRAM_CLK(art_clk), .DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(art_burstcnt), .DDRAM_ADDR(art_addr),
+	.DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(art_rd),
+	.DDRAM_DIN(art_din), .DDRAM_BE(art_be), .DDRAM_WE(art_we)
+);
+// Orientation Horz (rotated monitor): the artwork turns its own view, so it keeps the framebuffer
+assign art_fb = art_run & ~direct_video;
 
 wire rotate_ccw = ~game_flags[7];  // ROT270 sets rotate CCW, ROT90 sets CW
 wire no_rotate  = ~game_vert | status[34] | direct_video;
 wire flip       = status[35];
-screen_rotate screen_rotate(.*);
+wire        sr_fb_en, sr_clk, sr_rd, sr_we;
+wire  [4:0] sr_fb_format;
+wire [11:0] sr_fb_w, sr_fb_h;
+wire [31:0] sr_fb_base;
+wire [13:0] sr_fb_stride;
+wire  [7:0] sr_burstcnt, sr_be;
+wire [28:0] sr_addr;
+wire [63:0] sr_din;
+screen_rotate screen_rotate
+(
+	.*,
+	.FB_EN(sr_fb_en), .FB_FORMAT(sr_fb_format), .FB_WIDTH(sr_fb_w), .FB_HEIGHT(sr_fb_h),
+	.FB_BASE(sr_fb_base), .FB_STRIDE(sr_fb_stride),
+	.DDRAM_CLK(sr_clk), .DDRAM_BURSTCNT(sr_burstcnt), .DDRAM_ADDR(sr_addr), .DDRAM_DIN(sr_din),
+	.DDRAM_BE(sr_be), .DDRAM_WE(sr_we), .DDRAM_RD(sr_rd)
+);
+
+// the artwork takes the framebuffer while it draws, and DDR3 while it loads or draws
+assign FB_EN     = art_fb | sr_fb_en;
+assign FB_FORMAT = art_fb ? 5'b00110  : sr_fb_format;
+assign FB_WIDTH  = art_fb ? art_cw    : sr_fb_w;
+assign FB_HEIGHT = art_fb ? art_ch    : sr_fb_h;
+assign FB_BASE   = art_fb ? art_fb_base : sr_fb_base;
+assign FB_STRIDE = art_fb ? 14'd8192  : sr_fb_stride;
+assign DDRAM_CLK      = CLK_49M;
+assign DDRAM_BURSTCNT = art_ddr ? art_burstcnt : sr_burstcnt;
+assign DDRAM_ADDR     = art_ddr ? art_addr : sr_addr;
+assign DDRAM_DIN      = art_ddr ? art_din : sr_din;
+assign DDRAM_BE       = art_ddr ? art_be : sr_be;
+assign DDRAM_WE       = art_ddr ? art_we : sr_we;
+assign DDRAM_RD       = art_ddr ? art_rd : sr_rd;
 
 arcade_video #(288,24) arcade_video
 (
@@ -401,13 +476,13 @@ galaga_board board
 	.ioctl_wr0(ioctl_wr & (ioctl_index == 8'd0)),
 
 	.ce_pix(ce_pix),
-	.video_r(r),
-	.video_g(g),
-	.video_b(b),
-	.video_hs(hs),
-	.video_vs(vs),
-	.video_hblank(hblank),
-	.video_vblank(vblank),
+	.video_r(bd_r),
+	.video_g(bd_g),
+	.video_b(bd_b),
+	.video_hs(bd_hs),
+	.video_vs(bd_vs),
+	.video_hblank(bd_hbl),
+	.video_vblank(bd_vbl),
 
 	.audio(audio),
 

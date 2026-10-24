@@ -10,6 +10,10 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_50xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_05xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/bosco_video.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/xevious_video.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/artwork.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/art_resample.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/png_decode.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/inflate.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_06xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_51xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_53xx.sv
