@@ -228,99 +228,144 @@ wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked | ~hps_re
 
 ///////////////////         Keyboard           //////////////////
 
-reg kb_up = 0, kb_down = 0, kb_left = 0, kb_right = 0;
-reg kb_b1 = 0, kb_b2 = 0;
-reg kb_coin1 = 0, kb_coin2 = 0, kb_start1 = 0, kb_start2 = 0, kb_pause = 0, kb_service = 0, kb_tilt = 0;
-
-wire       pressed = ~ps2_key[9];
-wire [7:0] code    = ps2_key[7:0];
-
-always @(posedge CLK_49M) begin
-	reg old_state;
-	old_state <= ps2_key[10];
-	if (old_state != ps2_key[10]) begin
-		case (code)
-			'h16: kb_start1  <= pressed; // 1
-			'h1E: kb_start2  <= pressed; // 2
-			'h2E: kb_coin1   <= pressed; // 5
-			'h36: kb_coin2   <= pressed; // 6
-			'h46: kb_service <= pressed; // 9
-			'h2C: kb_tilt    <= pressed; // T
-			'h4D: kb_pause   <= pressed; // P
-
-			'h75: kb_up      <= pressed; // up
-			'h72: kb_down    <= pressed; // down
-			'h6B: kb_left    <= pressed; // left
-			'h74: kb_right   <= pressed; // right
-			'h14: kb_b1      <= pressed; // ctrl
-			'h11: kb_b2      <= pressed; // alt
-		endcase
-	end
-end
+// CTL-2026-10-24: keyboard -> ctl_keyboard (rtl/mister_custom/controllers.sv); keys now act on press. Original commented out below.
+// reg kb_up = 0, kb_down = 0, kb_left = 0, kb_right = 0;
+// reg kb_b1 = 0, kb_b2 = 0;
+// reg kb_coin1 = 0, kb_coin2 = 0, kb_start1 = 0, kb_start2 = 0, kb_pause = 0, kb_service = 0, kb_tilt = 0;
+//
+// wire       pressed = ~ps2_key[9];
+// wire [7:0] code    = ps2_key[7:0];
+//
+// always @(posedge CLK_49M) begin
+// 	reg old_state;
+// 	old_state <= ps2_key[10];
+// 	if (old_state != ps2_key[10]) begin
+// 		case (code)
+// 			'h16: kb_start1  <= pressed; // 1
+// 			'h1E: kb_start2  <= pressed; // 2
+// 			'h2E: kb_coin1   <= pressed; // 5
+// 			'h36: kb_coin2   <= pressed; // 6
+// 			'h46: kb_service <= pressed; // 9
+// 			'h2C: kb_tilt    <= pressed; // T
+// 			'h4D: kb_pause   <= pressed; // P
+//
+// 			'h75: kb_up      <= pressed; // up
+// 			'h72: kb_down    <= pressed; // down
+// 			'h6B: kb_left    <= pressed; // left
+// 			'h74: kb_right   <= pressed; // right
+// 			'h14: kb_b1      <= pressed; // ctrl
+// 			'h11: kb_b2      <= pressed; // alt
+// 		endcase
+// 	end
+// end
+// kb: [0] up [1] down [2] left [3] right [4] Btn 1 (Ctrl) [5] Btn 2 (Alt) [6] Start 1 [7] Start 2 [8] Coin 1 [9] Coin 2 [10] Service [11] Tilt [12] Pause
+wire [12:0] kb;
+// CTL2-2026-10-25: controllers.sv v2: ctl_keyboard pause wired (no toggle keys here, so no behaviour change). v1 commented out below.
+// ctl_keyboard keyboard(.clk(CLK_49M), .ps2_key(ps2_key), .kb(kb));
+/* verilator lint_off PINCONNECTEMPTY */
+ctl_keyboard keyboard(.clk(CLK_49M), .ps2_key(ps2_key), .pause(pause_cpu), .kb(kb), .kbx());
+/* verilator lint_on PINCONNECTEMPTY */
 
 //////////////////  Arcade Buttons/Interfaces   ///////////////////////////
 
 // Joystick bits: 0 R, 1 L, 2 D, 3 U, 4-7 Btn 1-4, 8 Coin, 9 Start 1P, 10 Start 2P, 11 Pause, 12-14 Btn 5-6 + Rack Test
-wire [3:0] dir1_raw = {joystick_0[3] | kb_up, joystick_0[2] | kb_down, joystick_0[1] | kb_left, joystick_0[0] | kb_right};
+// CTL-2026-10-24: keyboard arrows from ctl_keyboard. Original commented out below.
+// wire [3:0] dir1_raw = {joystick_0[3] | kb_up, joystick_0[2] | kb_down, joystick_0[1] | kb_left, joystick_0[0] | kb_right};
+wire [3:0] dir1_raw = {joystick_0[3] | kb[0], joystick_0[2] | kb[1], joystick_0[1] | kb[2], joystick_0[0] | kb[3]};
 wire [3:0] dir2_raw = joystick_1[3:0];
 wire [3:0] dir1, dir2;   // {U, D, L, R}
 
-joy4way joy4way_1(.clk(CLK_49M), .en(game_flags[0]), .in(dir1_raw), .out(dir1));
-joy4way joy4way_2(.clk(CLK_49M), .en(game_flags[0]), .in(dir2_raw), .out(dir2));
+// CTL-2026-10-24: 4-way restriction -> ctl_joy4way. Original commented out below.
+// joy4way joy4way_1(.clk(CLK_49M), .en(game_flags[0]), .in(dir1_raw), .out(dir1));
+// joy4way joy4way_2(.clk(CLK_49M), .en(game_flags[0]), .in(dir2_raw), .out(dir2));
+ctl_joy4way joy4way_1(.clk(CLK_49M), .en(game_flags[0]), .in(dir1_raw), .out(dir1));
+ctl_joy4way joy4way_2(.clk(CLK_49M), .en(game_flags[0]), .in(dir2_raw), .out(dir2));
 
-wire m_pause = joystick_0[11] | kb_pause;
+// CTL-2026-10-24: keyboard P from ctl_keyboard. Original commented out below.
+// wire m_pause = joystick_0[11] | kb_pause;
+wire m_pause = joystick_0[11] | kb[12];
 
-// MAME PORT_IMPULSE(2): a coin press is latched, then held for exactly two frames from the next vblank
-wire       coin1_raw = joystick_0[8] | kb_coin1;
-wire       coin2_raw = joystick_1[8] | kb_coin2;
-reg        coin1_d = 1'b0, coin2_d = 1'b0, coin1_pend = 1'b0, coin2_pend = 1'b0, imp_vbl = 1'b0;
-reg  [1:0] coin1_frames = 2'd0, coin2_frames = 2'd0;
-always @(posedge CLK_49M) begin
-	coin1_d <= coin1_raw;
-	coin2_d <= coin2_raw;
-	imp_vbl <= vblank;
-	if (coin1_raw & ~coin1_d) coin1_pend <= 1'b1;
-	if (coin2_raw & ~coin2_d) coin2_pend <= 1'b1;
-	if (vblank & ~imp_vbl) begin
-		if (coin1_pend)                begin coin1_frames <= 2'd2; coin1_pend <= 1'b0; end
-		else if (coin1_frames != 2'd0) coin1_frames <= coin1_frames - 2'd1;
-		if (coin2_pend)                begin coin2_frames <= 2'd2; coin2_pend <= 1'b0; end
-		else if (coin2_frames != 2'd0) coin2_frames <= coin2_frames - 2'd1;
-	end
-end
-wire coin1 = game_flags[2] ? |coin1_frames : coin1_raw;
-wire coin2 = game_flags[2] ? |coin2_frames : coin2_raw;
+// CTL-2026-10-24: coin PORT_IMPULSE(2) -> ctl_coin_impulse. Original commented out below.
+// // MAME PORT_IMPULSE(2): a coin press is latched, then held for exactly two frames from the next vblank
+// wire       coin1_raw = joystick_0[8] | kb_coin1;
+// wire       coin2_raw = joystick_1[8] | kb_coin2;
+// reg        coin1_d = 1'b0, coin2_d = 1'b0, coin1_pend = 1'b0, coin2_pend = 1'b0, imp_vbl = 1'b0;
+// reg  [1:0] coin1_frames = 2'd0, coin2_frames = 2'd0;
+// always @(posedge CLK_49M) begin
+// 	coin1_d <= coin1_raw;
+// 	coin2_d <= coin2_raw;
+// 	imp_vbl <= vblank;
+// 	if (coin1_raw & ~coin1_d) coin1_pend <= 1'b1;
+// 	if (coin2_raw & ~coin2_d) coin2_pend <= 1'b1;
+// 	if (vblank & ~imp_vbl) begin
+// 		if (coin1_pend)                begin coin1_frames <= 2'd2; coin1_pend <= 1'b0; end
+// 		else if (coin1_frames != 2'd0) coin1_frames <= coin1_frames - 2'd1;
+// 		if (coin2_pend)                begin coin2_frames <= 2'd2; coin2_pend <= 1'b0; end
+// 		else if (coin2_frames != 2'd0) coin2_frames <= coin2_frames - 2'd1;
+// 	end
+// end
+// wire coin1 = game_flags[2] ? |coin1_frames : coin1_raw;
+// wire coin2 = game_flags[2] ? |coin2_frames : coin2_raw;
+// MAME PORT_IMPULSE(2) when game_flags[2]: a coin press is held for exactly two frames from the next vblank.
+// CTL2-2026-10-25: coin impulse paused with the CPU (PAUSE_MODE 1: frame count holds, a press while paused is discarded). v1 commented out below.
+// // pause tied 0: the original block keeps counting vblanks while paused (bit-identical).
+// wire coin1, coin2;
+// ctl_coin_impulse coin_imp1(.clk(CLK_49M), .pause(1'b0), .vblank(vblank), .en(game_flags[2]),
+//                            .coin_raw(joystick_0[8] | kb[8]), .coin(coin1));
+// ctl_coin_impulse coin_imp2(.clk(CLK_49M), .pause(1'b0), .vblank(vblank), .en(game_flags[2]),
+//                            .coin_raw(joystick_1[8] | kb[9]), .coin(coin2));
+wire coin1, coin2;
+ctl_coin_impulse #(.PAUSE_MODE(1)) coin_imp1(.clk(CLK_49M), .pause(pause_cpu), .vblank(vblank), .en(game_flags[2]),
+                           .coin_raw(joystick_0[8] | kb[8]), .coin(coin1));
+ctl_coin_impulse #(.PAUSE_MODE(1)) coin_imp2(.clk(CLK_49M), .pause(pause_cpu), .vblank(vblank), .en(game_flags[2]),
+                           .coin_raw(joystick_1[8] | kb[9]), .coin(coin2));
 
 // Rack Test cheat: held (MAME DIP with a key), or flipped on each press (MAME PORT_TOGGLE)
 wire rack_btn = joystick_0[14] | joystick_1[14];
-reg  rack_d = 1'b0, rack_tog = 1'b0;
-always @(posedge CLK_49M) begin
-	rack_d <= rack_btn;
-	if (ioctl_download)          rack_tog <= 1'b0;
-	else if (rack_btn & ~rack_d) rack_tog <= ~rack_tog;
-end
+// CTL-2026-10-24: Rack Test PORT_TOGGLE -> ctl_toggle. Original commented out below.
+// reg  rack_d = 1'b0, rack_tog = 1'b0;
+// always @(posedge CLK_49M) begin
+// 	rack_d <= rack_btn;
+// 	if (ioctl_download)          rack_tog <= 1'b0;
+// 	else if (rack_btn & ~rack_d) rack_tog <= ~rack_tog;
+// end
+wire rack_tog;
+// CTL2-2026-10-25: Rack Test toggle ignores presses while paused. v1 commented out below.
+// ctl_toggle rack_toggle(.clk(CLK_49M), .clear(ioctl_download), .btn(rack_btn), .q(rack_tog));
+ctl_toggle rack_toggle(.clk(CLK_49M), .clear(ioctl_download), .btn(rack_btn), .pause(pause_cpu), .q(rack_tog));
 
-// control ids used by the MRA input map
+// CTL-2026-10-24: control ids 0-35 -> ctl_ids (pad 2's Start = Start 2 only); ids 36-37 stay core-local. Original commented out below.
+// // control ids used by the MRA input map
+// wire [63:0] ctl =
+// {
+// 	26'd0,
+// 	rack_tog,                                       // 37 rack test (toggle)
+// 	rack_btn,                                       // 36 rack test (held)
+// 	joystick_1[13:12],                              // 35-34 P2 Btn 6-5
+// 	joystick_0[13:12],                              // 33-32 P1 Btn 6-5
+// 	8'd0,                                           // 31-24 unused
+// 	1'b0,                                           // 23 coin 3
+// 	kb_service,                                     // 22 service
+// 	kb_tilt,                                        // 21 tilt
+// 	joystick_0[10] | joystick_1[10] | kb_start2,    // 20 start 2
+// 	joystick_0[9]  | joystick_1[9]  | kb_start1,    // 19 start 1
+// 	coin2,                                          // 18 coin 2
+// 	coin1,                                          // 17 coin 1
+// 	joystick_1[7:4],                                // 16-13 P2 Btn 4-1
+// 	dir2[0], dir2[1], dir2[2], dir2[3],             // 12 R, 11 L, 10 D, 9 U
+// 	joystick_0[7:6], joystick_0[5] | kb_b2, joystick_0[4] | kb_b1,   // 8-5 P1 Btn 4-1
+// 	dir1[0], dir1[1], dir1[2], dir1[3],             // 4 R, 3 L, 2 D, 1 U
+// 	1'b0                                            // 0 none
+// };
+wire [35:0] ctl36;
+ctl_ids ids(.joy0(joystick_0), .joy1(joystick_1), .kb(kb), .dir1(dir1), .dir2(dir2),
+            .coin1(coin1), .coin2(coin2), .coin3(1'b0), .ctl(ctl36));
 wire [63:0] ctl =
 {
 	26'd0,
 	rack_tog,                                       // 37 rack test (toggle)
 	rack_btn,                                       // 36 rack test (held)
-	joystick_1[13:12],                              // 35-34 P2 Btn 6-5
-	joystick_0[13:12],                              // 33-32 P1 Btn 6-5
-	8'd0,                                           // 31-24 unused
-	1'b0,                                           // 23 coin 3
-	kb_service,                                     // 22 service
-	kb_tilt,                                        // 21 tilt
-	joystick_0[10] | joystick_1[10] | kb_start2,    // 20 start 2
-	joystick_0[9]  | joystick_1[9]  | kb_start1,    // 19 start 1
-	coin2,                                          // 18 coin 2
-	coin1,                                          // 17 coin 1
-	joystick_1[7:4],                                // 16-13 P2 Btn 4-1
-	dir2[0], dir2[1], dir2[2], dir2[3],             // 12 R, 11 L, 10 D, 9 U
-	joystick_0[7:6], joystick_0[5] | kb_b2, joystick_0[4] | kb_b1,   // 8-5 P1 Btn 4-1
-	dir1[0], dir1[1], dir1[2], dir1[3],             // 4 R, 3 L, 2 D, 1 U
-	1'b0                                            // 0 none
+	ctl36                                           // 35-0 shared ids
 };
 
 // DIP switches arrive from the OSD via ioctl index 254
@@ -345,12 +390,35 @@ generate
 	end
 endgenerate
 
-reg [7:0] in_port[4];
-always @(posedge CLK_49M) begin
-	for (int p = 0; p < 4; p++)
-		for (int b = 0; b < 8; b++)
-			in_port[p][b] <= idle[p*8 + b] ^ ctl[in_map[p*8 + b]];
-end
+// CTL-2026-10-24: input port builder -> ctl_port_map (idle computed above). Original commented out below.
+// reg [7:0] in_port[4];
+// always @(posedge CLK_49M) begin
+// 	for (int p = 0; p < 4; p++)
+// 		for (int b = 0; b < 8; b++)
+// 			in_port[p][b] <= idle[p*8 + b] ^ ctl[in_map[p*8 + b]];
+// end
+wire [7:0]   in_port[4];
+wire [31:0]  in_ports;
+wire [255:0] in_map_flat;
+generate
+	for (gi = 0; gi < 4; gi = gi + 1) begin : g_port
+		assign in_port[gi] = in_ports[gi*8 +: 8];
+	end
+	for (gi = 0; gi < 32; gi = gi + 1) begin : g_map
+		assign in_map_flat[gi*8 +: 8] = {2'b00, in_map[gi]};
+	end
+endgenerate
+// CTL2-2026-10-25: controllers.sv v2: port_sel / dip_bytes / dip_bit tied 0 (unused in BASE_MODE 0; idle stays the local is_btn builder). v1 commented out below.
+// ctl_port_map #(.NP(4), .IDW(6)) port_map
+// (
+// 	.clk(CLK_49M), .idle(idle), .in_map(in_map_flat), .dips(32'd0), .ctl(ctl),
+// 	.ovr_mask(32'd0), .ovr_val(32'd0), .ports(in_ports)
+// );
+ctl_port_map #(.NP(4), .IDW(6)) port_map
+(
+	.clk(CLK_49M), .idle(idle), .in_map(in_map_flat), .dips(32'd0), .port_sel(32'd0), .dip_bytes(64'd0), .dip_bit(96'd0),
+	.ctl(ctl), .ovr_mask(32'd0), .ovr_val(32'd0), .ports(in_ports)
+);
 
 // PAUSE SYSTEM
 wire [23:0] rgb_out;
@@ -526,31 +594,32 @@ hiscore #(
 
 endmodule
 
-// 4-way joystick: the most recently pressed direction wins (from the MiSTer Pac-Man port)
-module joy4way
-(
-	input        clk,
-	input        en,
-	input  [3:0] in,
-	output [3:0] out
-);
-
-reg  [3:0] mask = 4'hF;
-reg  [3:0] in1 = 0, in2 = 0;
-wire [3:0] innew = in1 & ~in2;
-
-assign out = in1 & mask;
-
-always @(posedge clk) begin
-	in1 <= in;
-	in2 <= in1;
-
-	if (innew[0]) mask <= 4'b0001;
-	if (innew[1]) mask <= 4'b0010;
-	if (innew[2]) mask <= 4'b0100;
-	if (innew[3]) mask <= 4'b1000;
-
-	if (!(in & mask) || !en) mask <= 4'hF;
-end
-
-endmodule
+// CTL-2026-10-24: local joy4way replaced by ctl_joy4way (rtl/mister_custom/controllers.sv). Original commented out below.
+// // 4-way joystick: the most recently pressed direction wins (from the MiSTer Pac-Man port)
+// module joy4way
+// (
+// 	input        clk,
+// 	input        en,
+// 	input  [3:0] in,
+// 	output [3:0] out
+// );
+//
+// reg  [3:0] mask = 4'hF;
+// reg  [3:0] in1 = 0, in2 = 0;
+// wire [3:0] innew = in1 & ~in2;
+//
+// assign out = in1 & mask;
+//
+// always @(posedge clk) begin
+// 	in1 <= in;
+// 	in2 <= in1;
+//
+// 	if (innew[0]) mask <= 4'b0001;
+// 	if (innew[1]) mask <= 4'b0010;
+// 	if (innew[2]) mask <= 4'b0100;
+// 	if (innew[3]) mask <= 4'b1000;
+//
+// 	if (!(in & mask) || !en) mask <= 4'hF;
+// end
+//
+// endmodule

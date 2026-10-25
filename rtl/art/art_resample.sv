@@ -70,7 +70,7 @@ wire [10:0] ra = new_dx ? mirror(dx, flip, dw) : ra_hold;
 dpram_dc #(.widthad_a(11), .width_a(72)) lbuf
 (
     .clock_a(clk), .address_a(wa), .data_a(wd), .wren_a(we), .q_a(),
-    .clock_b(clk), .address_b(ra), .data_b('0), .wren_b(1'b0), .q_b(rq)
+    .clock_b(clk), .address_b(ra), .data_b(72'd0), .wren_b(1'b0), .q_b(rq)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 wire [63:0] px_ext = {8'd0, in_px[31:24], 8'd0, in_px[23:16], 8'd0, in_px[15:8], 8'd0, in_px[7:0]};

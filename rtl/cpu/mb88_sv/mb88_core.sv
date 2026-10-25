@@ -1,4 +1,21 @@
 // ============================================================================
+//  MB88-2026-10-24: FLEET MASTER. One mb88_core.sv / mb88.sv pair for every MB88 core
+//  (Galaga, Arabian, Kangaroo, PolePosition, Namco6809), md5-identical everywhere.
+//  Master home: Arcade-Galaga_MiSTer/rtl/cpu/mb88_sv/. Edit it there, then copy out.
+//  Merged lineages (all fixes from every copy are present):
+//    Kangaroo 2026-07-10 origin: MCU-TIMER-FIX / MCU-TIMERVF-FIX (07-11), serial (07-18)
+//    PolePosition: TC-TIMER-FIX (07-17), O-PORT-STROBE o_wr (08-09), serial 1 shift per
+//      ce (SERIALRATE 09-19, HW-confirmed), IRQ_ENTRY_STALL parameter (09-23, 54xx = 3)
+//    Galaga 2026-10-04: ram_clr power-on RAM / stack clear input
+//    Arabian (Kangaroo 08-21 snapshot): IRQ-CYCLES-FIX = MAME interrupt entry (instruction
+//      first, post-instruction PC pushed, 3 ce) -> parameter IRQ_AFTER_INSN (Arabian = 1)
+//  Per-core settings that keep every core's previous behaviour:
+//    IRQ_AFTER_INSN  0 = take the interrupt at fetch instead of the instruction, 1 ce +
+//                        IRQ_ENTRY_STALL (Galaga, PolePosition, Kangaroo, Namco6809)
+//                    1 = MAME burn_cycles(): instruction, then 3 ce entry (Arabian)
+//    IRQ_ENTRY_STALL 0, or 3 for the 54xx (only used when IRQ_AFTER_INSN = 0)
+//    ram_clr         tie 1'b0 unless the core sweeps MCU RAM at power-on (Galaga: core reset)
+// ============================================================================
 //  mb88.sv  —  Fujitsu MB88xx 4-bit MCU core (MB8841/8843 family)
 //  Greenfield, correctness-first re-implementation in SystemVerilog for Verilator
 //  co-sim debugging (primary target: Kangaroo MB8841 protection MCU bug).
@@ -40,7 +57,9 @@
 // fetch. 0 = legacy 1-ce entry (51xx/52xx/53xx rely on it; the global MAME-exact change broke the
 // 51xx and the main-CPU POST on 2026-09-19). 3 = MAME burn_cycles(3); the 54xx needs it or its IRQ
 // handler reads the command latch before the 06xx byte lands (verilator/n54_cosim).
-module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
+// MB88-2026-10-24: IRQ_AFTER_INSN added (Arabian's IRQ-CYCLES-FIX-2026-08-21 path), see header.
+// module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
+module mb88_core #(parameter IRQ_ENTRY_STALL = 0, parameter IRQ_AFTER_INSN = 0)
 (
     input  wire        clk, ce, reset_n,
     input  wire        ram_clr,        // power-on: sweep RAM and stack to 0 while held (with reset_n low)
@@ -114,8 +133,13 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
     wire [5:0] hw_vec = active_irq[2] ? 6'h02 : active_irq[1] ? 6'h04 : 6'h06;
     wire serial_running = (pio[5:4]==2'b10) && !serial_disabled;   // internal serial enabled
 
-    localparam [1:0] S_FETCH=0, S_FETCH2=1, S_ILLEGAL=2;
-    reg [1:0] state;
+    // MB88-2026-10-24: S_IRQ1-3 from Arabian (IRQ-CYCLES-FIX-2026-08-21), only reached when IRQ_AFTER_INSN = 1.
+    // localparam [1:0] S_FETCH=0, S_FETCH2=1, S_ILLEGAL=2;
+    // reg [1:0] state;
+    localparam [2:0] S_FETCH=0, S_FETCH2=1, S_ILLEGAL=2, S_IRQ1=3, S_IRQ2=4, S_IRQ3=5;
+    reg [2:0] state;
+    wire irq_take  = (int_req || |active_irq) && !in_irq;
+    wire irq_after = (IRQ_AFTER_INSN != 0) && irq_take;   // MAME order: finish the instruction, then enter
     reg [7:0] op1;             // latched opcode for 2-byte insns
 
     // ---- combinational helpers ----
@@ -215,7 +239,9 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
             else
             case (state)
             // ==================================================================
-            S_FETCH: if ((int_req || |active_irq) && !in_irq) begin
+            // MB88-2026-10-24: at-fetch entry only when IRQ_AFTER_INSN = 0; original condition:
+            // S_FETCH: if ((int_req || |active_irq) && !in_irq) begin
+            S_FETCH: if ((IRQ_AFTER_INSN == 0) && irq_take) begin
                 // ---- take interrupt: push {flags,return PC}, vector to handler ----
                 // int_req = trace-injection (co-sim diff); active_irq = real HW path.
                 SP[SI] <= {cf, zf, st, 2'b00, PA, PC};   // return addr = deferred insn
@@ -228,6 +254,7 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
                 fetch_pc <= {PA,PC};     // executing instruction's own PC (matches MAME)
                 PC<=pc_n; PA<=pa_n;      // default INCPC (branches override below)
                 retire<=1'b1;
+                state <= irq_after ? S_IRQ1 : S_FETCH;   // MB88-2026-10-24 (Arabian); 2-byte ops override below
                 case (op)
                 8'h00: st<=1;                                   // nop
                 // outO: cf=1->oh, cf=0->ol (MAME write_pla 8-bit / VHDL). o_wr pulses
@@ -316,7 +343,9 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
             // ==================================================================
             S_FETCH2: begin
                 PC<=pc_n; PA<=pa_n;                 // consume operand byte
-                retire<=1'b1; state<=S_FETCH;
+                // MB88-2026-10-24: original below (IRQ_AFTER_INSN = 1 enters the interrupt after the operand, as Arabian)
+                // retire<=1'b1; state<=S_FETCH;
+                retire<=1'b1; state <= irq_after ? S_IRQ1 : S_FETCH;
                 case (op1)
                 8'h3d: begin PA<=op[4:0]; PC<={A,2'b00}; st<=1; end          // jpa: PA=imm, PC=A*4
                 8'h3e: begin pio<=pio | op; st<=1; end                        // en
@@ -337,6 +366,19 @@ module mb88_core #(parameter IRQ_ENTRY_STALL = 0)
                 default: ;
                 endcase
             end
+            // MB88-2026-10-24: from Arabian (IRQ-CYCLES-FIX-2026-08-21), IRQ_AFTER_INSN = 1 only.
+            // Entry work + 2 idle ce = 3 ce, so instruction + interrupt = 4 ce = MAME's 1 + burn_cycles(3).
+            // {PA,PC} here is already the POST-instruction PC = MAME's GETPC().
+            S_IRQ1: begin
+                SP[SI] <= {cf, zf, st, 2'b00, PA, PC};
+                SI <= SI + 2'd1;
+                PA <= 5'd0; PC <= int_req ? int_vec : hw_vec;  // ext 02 / timer 04 / serial 06
+                in_irq <= 1'b1; st <= 1'b1; int_ack <= 1'b1;
+                pending_irq <= 3'b000;
+                state <= S_IRQ2;
+            end
+            S_IRQ2: state <= S_IRQ3;
+            S_IRQ3: state <= S_FETCH;
             S_ILLEGAL: ;
             default: state<=S_FETCH;
             endcase

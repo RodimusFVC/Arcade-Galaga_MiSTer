@@ -156,7 +156,7 @@ wire  [7:0] hdr_q;
 dpram_dc #(.widthad_a(11)) hdr
 (
     .clock_a(clk), .address_a(ioctl_addr[10:0]), .data_a(ioctl_dout), .wren_a(hdr_wr), .q_a(),
-    .clock_b(clk), .address_b(hdr_ra), .data_b('0), .wren_b(1'b0), .q_b(hdr_q)
+    .clock_b(clk), .address_b(hdr_ra), .data_b(8'd0), .wren_b(1'b0), .q_b(hdr_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 reg  [63:0] bw_acc, bw_word;
@@ -231,7 +231,7 @@ wire  [4:0] ring_ra = r_rp[4:0];   // next word to read, presented ahead
 dpram_dc #(.widthad_a(5), .width_a(64)) rring
 (
     .clock_a(clk), .address_a(5'(r_base + ebeat[5:0])), .data_a(DDRAM_DOUT), .wren_a(e_rd[4]), .q_a(),
-    .clock_b(clk), .address_b(ring_ra), .data_b('0), .wren_b(1'b0), .q_b(ring_q)
+    .clock_b(clk), .address_b(ring_ra), .data_b(64'd0), .wren_b(1'b0), .q_b(ring_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 reg  [11:0] v_cw, v_ch, v_sx, v_sy, v_sw, v_sh, v_nw, v_nh;   // view geometry (as drawn: after view rotation)
@@ -389,7 +389,7 @@ reg         bc_we;
 dpram_dc #(.widthad_a(6), .width_a(64)) bcbuf
 (
     .clock_a(clk), .address_a(e_rd[3] ? ebeat[5:0] : bc_wa[5:0]), .data_a(e_rd[3] ? DDRAM_DOUT : bc_wd), .wren_a(e_rd[3] | bc_we), .q_a(),
-    .clock_b(clk), .address_b(bst == B_WR ? wb_nxt[5:0] : b_i[5:0]), .data_b('0), .wren_b(1'b0), .q_b(bc_q)
+    .clock_b(clk), .address_b(bst == B_WR ? wb_nxt[5:0] : b_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(bc_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 assign b_wdata = fill ? S_INIT : bc_q;
 assign res_ready  = (bst == B_POS && !fill && b_out) || bst == B_C;
@@ -493,7 +493,7 @@ dpram_dc #(.widthad_a(14), .width_a(WW)) gring
 (
     .clock_a(clk), .address_a(rot ? {cap_buf, cap_i[15:3]} : {gy_w, gx_c[8:0]}),
     .data_a(rot ? (cap_put ? {cap_code, cap_acc[WW-CB-1:0]} : cap_acc) : {{(WW-24){1'b0}}, rgb_in}), .wren_a(cap_wr), .q_a(),
-    .clock_b(clk), .address_b(gr_ra), .data_b('0), .wren_b(1'b0), .q_b(gr_qw)
+    .clock_b(clk), .address_b(gr_ra), .data_b({WW{1'b0}}), .wren_b(1'b0), .q_b(gr_qw)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 reg           cp_rbuf;               // buffer the compositor reads (the last whole frame)
 wire [CB-1:0] gr_code = gr_qw[CB * gr_sub +: CB];
@@ -541,7 +541,7 @@ end else begin : map_hash
     dpram_dc #(.widthad_a(HB), .width_a(4 * SW)) ctab
     (
         .clock_a(clk), .address_a(clr ? clr_a : t_wa), .data_a(clr ? '0 : t_wd), .wren_a(clr | t_we), .q_a(),
-        .clock_b(clk), .address_b(m_h), .data_b('0), .wren_b(1'b0), .q_b(t_q)
+        .clock_b(clk), .address_b(m_h), .data_b({(4 * SW){1'b0}}), .wren_b(1'b0), .q_b(t_q)   // DPRAMSV-2026-10-25: was .data_b('0)
     );
     reg   [3:0] s_hit, s_free;
     reg [CB-1:0] s_code;             // code of the hit slot (slots hold unique colours: OR of the hits)
@@ -562,7 +562,7 @@ end else begin : map_hash
     dpram_dc #(.widthad_a(CB + 1), .width_a(24)) cpal
     (
         .clock_a(clk), .address_a({cap_buf, p_wa}), .data_a(m_rgb), .wren_a(p_we), .q_a(),
-        .clock_b(clk), .address_b({cp_rbuf, gr_code}), .data_b('0), .wren_b(1'b0), .q_b(p_q)
+        .clock_b(clk), .address_b({cp_rbuf, gr_code}), .data_b(24'd0), .wren_b(1'b0), .q_b(p_q)   // DPRAMSV-2026-10-25: was .data_b('0)
     );
     always @* pal2 = p_q;
     assign cap_put  = m_put;
@@ -596,7 +596,7 @@ reg         nb_half;
 dpram_dc #(.widthad_a(10), .width_a(64)) nbuf
 (
     .clock_a(clk), .address_a({nb_half, 9'(nb_x + {1'b0, ebeat})}), .data_a(DDRAM_DOUT), .wren_a(e_rd[0]), .q_a(),
-    .clock_b(clk), .address_b({vblank_in ? 1'b0 : gy_c[0], crt_flip ? 9'(v_nw - 12'd1 - {3'd0, gx_c}) : gx_c[8:0]}), .data_b('0), .wren_b(1'b0), .q_b(nb_q)
+    .clock_b(clk), .address_b({vblank_in ? 1'b0 : gy_c[0], crt_flip ? 9'(v_nw - 12'd1 - {3'd0, gx_c}) : gx_c[8:0]}), .data_b(64'd0), .wren_b(1'b0), .q_b(nb_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 reg  run = 1'b0;
@@ -700,13 +700,13 @@ wire [11:0] fb_x   = fbf ? v_cw - cp_x - {5'd0, cp_n} : cp_x;
 dpram_dc #(.widthad_a(6), .width_a(64)) ccbuf
 (
     .clock_a(clk), .address_a(ebeat[5:0]), .data_a(DDRAM_DOUT), .wren_a(e_rd[1]), .q_a(),
-    .clock_b(clk), .address_b(cp_i[5:0]), .data_b('0), .wren_b(1'b0), .q_b(cc_q)
+    .clock_b(clk), .address_b(cp_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cc_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 wire [63:0] cw_q;
 dpram_dc #(.widthad_a(5), .width_a(64)) cwbuf
 (
     .clock_a(clk), .address_a(cw_a), .data_a(cw_d), .wren_a(cw_we), .q_a(),
-    .clock_b(clk), .address_b(wb_nxt[4:0]), .data_b('0), .wren_b(1'b0), .q_b(cw_q)
+    .clock_b(clk), .address_b(wb_nxt[4:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cw_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 assign k_wdata = cw_q;
 // rotated: frame index of the game pixel (picture unflipped; the board rotates it 180 for CRT Flip)

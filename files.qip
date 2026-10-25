@@ -27,6 +27,7 @@ set_global_assignment -name QIP_FILE rtl/cpu/T80/T80.qip
 
 set_global_assignment -name VERILOG_FILE rtl/mister_custom/pause.v
 set_global_assignment -name VERILOG_FILE rtl/mister_custom/hiscore.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/mister_custom/controllers.sv
 
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ram_rom/rom_loader.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ram_rom/dpram_dc.sv

@@ -1,4 +1,7 @@
 // ============================================================================
+//  MB88-2026-10-24: FLEET MASTER, md5-identical in every MB88 core; master home is
+//  Arcade-Galaga_MiSTer/rtl/cpu/mb88_sv/. Lineages merged and per-core settings: see mb88_core.sv.
+// ============================================================================
 //  mb88.sv  —  wrapper presenting darfpga/Xevious's EXACT `mb88` entity, so it
 //  binds to poleposition.vhd's `entity work.mb88` instantiations (cs51xx / cs54xx /
 //  cs50xx) with NO edit to the game logic. Wraps our combinational-RAM mb88_core
@@ -14,12 +17,14 @@
 //  shim entity `mb88` wrapping mb88_core is the fallback.
 // ============================================================================
 
-module mb88 #(parameter IRQ_ENTRY_STALL = 0)   // IRQ-ENTRY-STALL-2026-09-23, see mb88_core.sv
+// MB88-2026-10-24: IRQ_AFTER_INSN added (see mb88_core.sv); original:
+// module mb88 #(parameter IRQ_ENTRY_STALL = 0)   // IRQ-ENTRY-STALL-2026-09-23, see mb88_core.sv
+module mb88 #(parameter IRQ_ENTRY_STALL = 0, parameter IRQ_AFTER_INSN = 0)
 (
     input  wire        clock,
     input  wire        ena,
     input  wire        reset_n,
-    input  wire        ram_clr,        // power-on RAM clear (see mb88_core)
+    input  wire        ram_clr,        // power-on RAM clear (see mb88_core); tie 1'b0 if unused
 
     input  wire [3:0]  r0_port_in,  r1_port_in,  r2_port_in,  r3_port_in,
     output wire [3:0]  r0_port_out, r1_port_out, r2_port_out, r3_port_out,
@@ -74,7 +79,9 @@ module mb88 #(parameter IRQ_ENTRY_STALL = 0)   // IRQ-ENTRY-STALL-2026-09-23, se
         end
     end
 
-    mb88_core #(.IRQ_ENTRY_STALL(IRQ_ENTRY_STALL)) core
+    // MB88-2026-10-24: original below
+    // mb88_core #(.IRQ_ENTRY_STALL(IRQ_ENTRY_STALL)) core
+    mb88_core #(.IRQ_ENTRY_STALL(IRQ_ENTRY_STALL), .IRQ_AFTER_INSN(IRQ_AFTER_INSN)) core
     (
         .clk       (clock),
         .ce        (ena),

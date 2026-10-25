@@ -156,7 +156,7 @@ wire  [7:0] lb_q;
 dpram_dc #(.widthad_a(15)) prev_line
 (
     .clock_a(clk), .address_a(lb_addr), .data_a(lb_d), .wren_a(lb_we), .q_a(lb_q),
-    .clock_b(clk), .address_b(15'd0), .data_b('0), .wren_b(1'b0), .q_b()
+    .clock_b(clk), .address_b(15'd0), .data_b(8'd0), .wren_b(1'b0), .q_b()   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 localparam U_FILT = 3'd0, U_RD = 3'd1, U_CALC = 3'd2, U_EMIT = 3'd3, U_SUB = 3'd4;
@@ -196,12 +196,12 @@ wire  [7:0] pal_ra = pal_busy ? pal_idx : sidx;
 dpram_dc #(.widthad_a(8), .width_a(24)) pal_rgb
 (
     .clock_a(clk), .address_a(pal_wa), .data_a(pal_wd), .wren_a(pal_we), .q_a(),
-    .clock_b(clk), .address_b(pal_ra), .data_b('0), .wren_b(1'b0), .q_b(pal_q)
+    .clock_b(clk), .address_b(pal_ra), .data_b(24'd0), .wren_b(1'b0), .q_b(pal_q)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 dpram_dc #(.widthad_a(8), .width_a(8)) pal_alpha
 (
     .clock_a(clk), .address_a(pal_wa), .data_a(pal_wd[7:0]), .wren_a(pal_awe), .q_a(),
-    .clock_b(clk), .address_b(pal_ra), .data_b('0), .wren_b(1'b0), .q_b(pal_aq)
+    .clock_b(clk), .address_b(pal_ra), .data_b(8'd0), .wren_b(1'b0), .q_b(pal_aq)   // DPRAMSV-2026-10-25: was .data_b('0)
 );
 
 always @* inf_out_ready = (ust == U_FILT) || (ust == U_CALC && !px_valid_hold && !pal_busy);
