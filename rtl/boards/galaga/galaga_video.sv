@@ -4,7 +4,7 @@
 //
 //  Tile / sprite geometry and colour lookups per MAME galaga_v.cpp and
 //  digdug.cpp (Nicola Salmoria); counters after Dar's (darfpga) Galaga core.
-//  Coordinates below are MAME's raw (unrotated) screen: x 0-287, y 0-223.
+//  Coordinates below are the raw (unrotated) screen: x 0-287, y 0-223.
 //
 //============================================================================
 
@@ -35,14 +35,24 @@ module galaga_video
     input         [7:0] spr2_q,
     input         [7:0] spr3_q,
 
-    // ROM / PROM load (ioctl index 0)
-    input        [24:0] ioctl_addr,
-    input         [7:0] ioctl_dout,
-    input               gfx1_wr,
-    input               gfx2_wr,
-    input               gfx3_wr,
-    input               gfx4_wr,
-    input               prom_wr,
+    // shared ROM blocks (rtl/galaga_dispatcher.sv), read ports
+    output       [12:0] chr_rom_a,      // gfx1 characters
+    input         [7:0] chr_rom_d,
+    output       [13:0] spr_rom_a,      // gfx2 sprites
+    input         [7:0] spr_rom_d,
+    output       [11:0] pfc_rom_a,      // gfx3 Dig Dug playfield characters
+    input         [7:0] pfc_rom_d,
+    output       [11:0] map_rom_a,      // gfx4 Dig Dug playfield maps
+    input         [7:0] map_rom_d,
+    output        [9:0] pix_prom_a,     // proms 000-3FF, pixel path copy
+    input         [7:0] pix_prom_d,
+    output        [9:0] spr_prom_a,     // proms 000-3FF, sprite engine copy
+    input         [7:0] spr_prom_d,
+
+    output ram_pool_pkg::pram_i_t lb_i,       // sprite line buffer (RAM pool block)
+    input  ram_pool_pkg::pram_o_t lb_o,
+    output chip_pool_pkg::namco_05xx_i_t star_i,  // 05xx starfield (chip pool)
+    input  chip_pool_pkg::namco_05xx_o_t star_o,
 
     output reg    [7:0] red = 8'd0,
     output reg    [7:0] green = 8'd0,
@@ -78,7 +88,7 @@ wire [8:0] py = vcnt - 9'd16;
 wire       h_vis = (hcnt >= 9'h0F0) || (hcnt < 9'h090);
 
 // picture position for the sprite line buffer (OSD flip only) and for the tile layers (OSD flip XOR game flip:
-// MAME flips tilemaps with the screen, but sprites only toggle their flip bits)
+// tile layers flip with the screen, but sprites only toggle their flip bits)
 wire [8:0] fpx = crt_flip ? 9'd287 - px : px;
 wire [8:0] fpy = crt_flip ? 9'd223 - py : py;
 wire [8:0] tpx = (crt_flip ^ flip) ? 9'd287 - px : px;
@@ -90,55 +100,37 @@ wire       v_vis = (vcnt >= 9'd16) && (vcnt < 9'd240);
 // characters (gfx1, 8K: Galaga 4K 2bpp, Gatsbee 8K banked, Dig Dug 2K 1bpp)
 reg  [12:0] chr_addr;
 wire  [7:0] chr_q;
-dpram_dc #(.widthad_a(13)) chr_rom
-(
-    .clock_a(clk), .address_a(chr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(chr_q),
-    .clock_b(clk), .address_b(ioctl_addr[12:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr), .q_b()
-);
+assign chr_rom_a = chr_addr;
+assign chr_q = chr_rom_d;
 
 // sprites (gfx2, 16K)
 reg  [13:0] spr_rom_addr;
 wire  [7:0] spr_rom_q;
-dpram_dc #(.widthad_a(14)) spr_rom
-(
-    .clock_a(clk), .address_a(spr_rom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spr_rom_q),
-    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr), .q_b()
-);
+assign spr_rom_a = spr_rom_addr;
+assign spr_rom_q = spr_rom_d;
 
 // Dig Dug playfield characters (gfx3, 4K 2bpp) and playfield maps (gfx4, 4 x 1K)
 reg  [11:0] pfc_addr;
 wire  [7:0] pfc_q;
-dpram_dc #(.widthad_a(12)) pfc_rom
-(
-    .clock_a(clk), .address_a(pfc_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(pfc_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && ioctl_addr[16:12] == 5'h18), .q_b()
-);
+assign pfc_rom_a = pfc_addr;
+assign pfc_q = pfc_rom_d;
 
 reg  [11:0] map_addr;
 wire  [7:0] map_q;
-dpram_dc #(.widthad_a(12)) map_rom
-(
-    .clock_a(clk), .address_a(map_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(map_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx4_wr && ioctl_addr[13:12] == 2'd0), .q_b()
-);
+assign map_rom_a = map_addr;
+assign map_q = map_rom_d;
 
 // "proms": 000 palette, 020 / 120 lookups (Galaga: characters / sprites; Dig Dug: sprites / playfield).
 // One copy for the pixel path, one for the sprite engine
 reg   [9:0] pix_prom_addr;
 wire  [7:0] pix_prom_q;
-dpram_dc #(.widthad_a(10)) pix_prom
-(
-    .clock_a(clk), .address_a(pix_prom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(pix_prom_q),
-    .clock_b(clk), .address_b(ioctl_addr[9:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:10] == 2'b00), .q_b()
-);
+assign pix_prom_a = pix_prom_addr;
+assign pix_prom_q = pix_prom_d;
 
 reg   [9:0] spr_prom_addr;
 wire  [7:0] spr_prom_q;
-dpram_dc #(.widthad_a(10)) spr_prom
-(
-    .clock_a(clk), .address_a(spr_prom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spr_prom_q),
-    .clock_b(clk), .address_b(ioctl_addr[9:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:10] == 2'b00), .q_b()
-);
+assign spr_prom_a = spr_prom_addr;
+assign spr_prom_q = spr_prom_d;
 
 //------------------------------------------------------- Sprite line buffer --------------------------------------------------//
 
@@ -150,11 +142,9 @@ reg   [9:0] lb_eng_addr;
 reg   [7:0] lb_eng_data;
 reg         lb_eng_wr;
 
-dpram_dc #(.widthad_a(10)) line_buf
-(
-    .clock_a(clk), .address_a(lb_disp_addr), .data_a(8'h00), .wren_a(lb_disp_clr), .q_a(lb_disp_q),
-    .clock_b(clk), .address_b(lb_eng_addr), .data_b(lb_eng_data), .wren_b(lb_eng_wr), .q_b()
-);
+assign lb_i.a_addr = {5'd0, lb_disp_addr}; assign lb_i.a_d = 8'h00; assign lb_i.a_we = lb_disp_clr;
+assign lb_i.b_addr = {5'd0, lb_eng_addr}; assign lb_i.b_d = lb_eng_data; assign lb_i.b_we = lb_eng_wr;
+assign lb_disp_q = lb_o.a_q;
 
 //------------------------------------------------------- 05xx starfield ------------------------------------------------------//
 
@@ -163,22 +153,17 @@ wire       star_win = v_vis && px >= 9'd16 && px < 9'd272;
 wire       star_hit;
 wire [5:0] star_col;
 
-namco_05xx stars
-(
-    .clk(clk),
-    .ce6(ce6),
-    .pause(pause),
-    .line_step(line_step),
-    .vcnt(vcnt),
-    .win(star_win),
-    .speed_x(star_ctl[2:0]),
-    .speed_y(3'd0),
-    .set_a({1'b0, star_ctl[3]}),
-    .set_b({1'b1, star_ctl[4]}),
-    .enable(star_ctl[5]),
-    .star(star_hit),
-    .color(star_col)
-);
+assign star_i.ce6 = ce6;
+assign star_i.line_step = line_step;
+assign star_i.vcnt = vcnt;
+assign star_i.win = star_win;
+assign star_i.speed_x = star_ctl[2:0];
+assign star_i.speed_y = 3'd0;
+assign star_i.set_a = {1'b0, star_ctl[3]};
+assign star_i.set_b = {1'b1, star_ctl[4]};
+assign star_i.enable = star_ctl[5];
+assign star_hit = star_o.star;
+assign star_col = star_o.color;
 
 //------------------------------------------------------- Character layer + pixel path -----------------------------------------//
 
@@ -191,7 +176,7 @@ wire [4:0] t_row  = tpy[7:3] + 5'd2;
 wire [9:0] t_offs = t_col[5] ? {t_col[4:0], t_row} : {t_row, t_col[4:0]};
 
 // Inside a tile: the game flip uses the hardware's x-flipped character set (code bit 7) instead of mirroring x
-// (MAME: code | 0x80 with TILE_FLIPX); the Dig Dug playfield has no second set and simply mirrors.
+// (code | 0x80, x-flipped); the Dig Dug playfield has no second set and simply mirrors.
 reg  [2:0] t_x, t_y, pf_x;
 reg  [5:0] t_color;
 reg  [1:0] t_pix, pf_pix;
@@ -208,7 +193,7 @@ reg        fg_bit_b;
 wire [3:0] dd_fg_color = tx_mode ? fg_code[3:0] : {fg_code[7], fg_code[6], fg_code[5] | fg_code[4], 1'b0};
 
 // Galaga charlayout_2bpp: 16 bytes per char, x 0-3 in bytes 8-15, x 4-7 in bytes 0-7; plane 0 = bits 7-4, plane 1 =
-// bits 3-0; codes 80-FF have the byte halves swapped (MAME init_galaga). Dig Dug text: 8 bytes per char, x = bit x.
+// bits 3-0; codes 80-FF have the byte halves swapped (on read). Dig Dug text: 8 bytes per char, x = bit x.
 always @(posedge clk) begin
     lb_disp_clr <= 1'b0;
     case (sub)
@@ -277,7 +262,7 @@ always @(posedge clk) begin
     endcase
 end
 
-// resistor networks: R/G 1K, 470, 220; B 470, 220 (MAME galaga_palette). Stars drive the 470 / 220 legs only.
+// resistor networks: R/G 1K, 470, 220; B 470, 220. Stars drive the 470 / 220 legs only.
 function [7:0] lvl_star(input [1:0] v);
     case (v)
         2'd0: lvl_star = 8'd0; 2'd1: lvl_star = 8'd71; 2'd2: lvl_star = 8'd151; 2'd3: lvl_star = 8'd222;
@@ -329,7 +314,7 @@ end
 
 //------------------------------------------------------- Sprite engine -------------------------------------------------------//
 
-// During each line the engine draws the NEXT line's sprites into the other half of the line buffer, in MAME's order
+// During each line the engine draws the NEXT line's sprites into the other half of the line buffer, in draw order
 // (sprite 0 first, later sprites on top). Registers at 0x380 + 2n: ram1 {code, colour}, ram2 {y, x}, ram3 {flags, x msb}.
 localparam S_IDLE = 3'd0, S_FETCH = 3'd1, S_EVAL = 3'd2, S_DRAW = 3'd3, S_NEXT = 3'd4;
 
@@ -354,7 +339,7 @@ wire       f_sizey = dd ? r_code[7] : r_flags[3];
 wire [7:0] e_code = dd ? (r_code[7] ? {r_code[7] | r_code[5], r_code[6] | r_code[4], r_code[3:0], 2'b00} : r_code)
                        : {1'b0, r_code[6:0]};
 
-// MAME Galaga: sx = x - 40 + 256 * (xmsb & 3). Dig Dug: sx = x - 39, each 16-pixel column at (sx + 16 n) & FF,
+// Galaga: sx = x - 40 + 256 * (xmsb & 3). Dig Dug: sx = x - 39, each 16-pixel column at (sx + 16 n) & FF,
 // wrapping to +100. Both: sy = ((256 - y + 1 - 16 * sizey) & 0xFF) - 32
 wire [9:0] e_sx  = dd ? {2'b00, r_x} - 10'd39 : {r_xmsb[1:0], r_x} - 10'd40;
 wire [7:0] e_sy8 = 8'd1 - r_y - {3'd0, f_sizey, 4'd0};

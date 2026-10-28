@@ -26,7 +26,7 @@ module namco_53xx
     input  wire        rom_wr,
     input  wire  [9:0] rom_addr_in,
     input  wire  [7:0] rom_data_in,
-    // the shared MB88 (rtl/galaga_board.sv pool)
+    // the shared MB88 (rtl/galaga_dispatcher.sv pool)
     output chip_pool_pkg::mb88_i_t mb88_i,
     input  chip_pool_pkg::mb88_o_t mb88_o
 );
@@ -36,7 +36,7 @@ module namco_53xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    // MB8843: the shared MB88 in rtl/galaga_board.sv
+    // MB8843: the shared MB88 in rtl/galaga_dispatcher.sv
     assign mb88_i.ena     = ena;
     assign mb88_i.reset_n = reset_n;
     assign mb88_i.k       = k_in;

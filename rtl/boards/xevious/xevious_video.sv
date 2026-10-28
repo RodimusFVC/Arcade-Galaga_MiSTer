@@ -5,7 +5,7 @@
 //  Per MAME xevious.cpp (Nicola Salmoria): background (2bpp, colour lookup),
 //  sprites (3bpp, colour lookup, drawn over the background), foreground text
 //  (1bpp, on top); palette = three 4-bit colour PROMs. Coordinates are
-//  MAME's raw screen: x 0-287, y 0-223. Counters come from galaga_video.
+//  the raw screen: x 0-287, y 0-223. Counters come from galaga_video.
 //
 //============================================================================
 
@@ -14,7 +14,7 @@ module xevious_video
     input               clk,            // 49.152 MHz
     input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
     input               ce6,
-    input               xevios,         // bootleg ROM bit order (MAME init_xevios)
+    input               xevios,         // bootleg ROM bit order (decoded on read)
     input               flip,           // CRTC register 7
     input               crt_flip,       // OSD: mirror the picture both ways
     input         [8:0] bg_sx, bg_sy, fg_sx, fg_sy,
@@ -35,13 +35,29 @@ module xevious_video
     input         [7:0] sr2_q,
     input         [7:0] sr3_q,
 
-    // ROM / PROM load (ioctl index 0)
-    input        [24:0] ioctl_addr,
-    input         [7:0] ioctl_dout,
-    input               gfx1_wr,
-    input               gfx2_wr,
-    input               gfx3_wr,
-    input               prom_wr,
+    // shared ROM blocks (rtl/galaga_dispatcher.sv), read ports
+    output       [11:0] fg_rom_a,       // gfx1 foreground characters
+    input         [7:0] fg_rom_d,
+    output       [11:0] bg_rom_a,       // gfx2 background characters: d0 = plane 0 (gfx2 0000), d1 = plane 1 (1000)
+    input         [7:0] bg_rom_d0,
+    input         [7:0] bg_rom_d1,
+    output       [14:0] spa_rom_a,      // gfx3 0000-4FFF sprite planes 0/1
+    input         [7:0] spa_rom_d,
+    output       [12:0] spb_rom_a,      // gfx3 5000-6FFF sprite plane 2
+    input         [7:0] spb_rom_d,
+    output        [7:0] pal_prom_a,     // proms 000 red / 100 green / 200 blue
+    input         [7:0] pal_prom_r,
+    input         [7:0] pal_prom_g,
+    input         [7:0] pal_prom_b,
+    output        [8:0] bgl_prom_a,     // proms 300 / 500 background lookup low / high
+    input         [7:0] bgl_prom_d0,
+    input         [7:0] bgl_prom_d1,
+    output        [8:0] spl_prom_a,     // proms 700 / 900 sprite lookup low / high
+    input         [7:0] spl_prom_d0,
+    input         [7:0] spl_prom_d1,
+
+    output ram_pool_pkg::pram_i_t lb_i,       // sprite line buffer (RAM pool block)
+    input  ram_pool_pkg::pram_o_t lb_o,
 
     output reg    [7:0] red = 8'd0,
     output reg    [7:0] green = 8'd0,
@@ -57,7 +73,7 @@ wire       mir   = crt_flip ^ flip;
 wire [8:0] fpx   = mir ? 9'd287 - px : px;
 wire [8:0] fpy   = mir ? 9'd223 - py : py;
 
-function [7:0] bswap_spr(input [7:0] v);    // bitswap<8>(v, 1,3,5,7,0,2,4,6)
+function [7:0] bswap_spr(input [7:0] v);    // result bits 7-0 = v bits 1,3,5,7,0,2,4,6
     bswap_spr = {v[1], v[3], v[5], v[7], v[0], v[2], v[4], v[6]};
 endfunction
 
@@ -66,90 +82,46 @@ endfunction
 // foreground characters (gfx1, 512 x 8 x 8 1bpp; 100-1FF = the x-flipped set)
 reg  [11:0] fgr_addr;
 wire  [7:0] fgr_q;
-dpram_dc #(.widthad_a(12)) fg_rom
-(
-    .clock_a(clk), .address_a(fgr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(fgr_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr && ioctl_addr[12] == 1'b0), .q_b()
-);
+assign fg_rom_a = fgr_addr;
+assign fgr_q = fg_rom_d;
 
 // background characters (gfx2): plane 0 in the first 4K, plane 1 in the second
 reg  [11:0] bgr_addr;
 wire  [7:0] bgr0_q, bgr1_q;
-dpram_dc #(.widthad_a(12)) bg_rom0
-(
-    .clock_a(clk), .address_a(bgr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(bgr0_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr && ioctl_addr[13:12] == 2'd0), .q_b()
-);
-dpram_dc #(.widthad_a(12)) bg_rom1
-(
-    .clock_a(clk), .address_a(bgr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(bgr1_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr && ioctl_addr[13:12] == 2'd1), .q_b()
-);
+assign bg_rom_a = bgr_addr;
+assign bgr0_q = bg_rom_d0;
+assign bgr1_q = bg_rom_d1;
 
-// sprites (gfx3, ioctl 18000): planes 0/1 at 0000-4FFF (32K store), plane 2 at 5000-6FFF (8K store)
-wire [17:0] g3_off = ioctl_addr[17:0] - 18'h18000;
-wire [17:0] g3_hi  = g3_off - 18'h05000;
+// sprites (gfx3): planes 0/1 at gfx3 0000-4FFF, plane 2 at 5000-6FFF
 reg  [14:0] spa_addr;
 wire  [7:0] spa_q;
-dpram_dc #(.widthad_a(15)) spr_rom_a
-(
-    .clock_a(clk), .address_a(spa_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spa_q),
-    .clock_b(clk), .address_b(g3_off[14:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && g3_off < 18'h05000), .q_b()
-);
+assign spa_rom_a = spa_addr;
+assign spa_q = spa_rom_d;
 
 reg  [12:0] spb_addr;
 wire  [7:0] spb_q;
-dpram_dc #(.widthad_a(13)) spr_rom_b
-(
-    .clock_a(clk), .address_a(spb_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spb_q),
-    .clock_b(clk), .address_b(g3_hi[12:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && g3_hi < 18'h02000), .q_b()
-);
+assign spb_rom_a = spb_addr;
+assign spb_q = spb_rom_d;
 
 // PROMs: 000 red, 100 green, 200 blue (128 used), 300 / 500 background lookup low / high, 700 / 900 sprite lookup
 reg   [9:0] pal_addr;
 wire  [7:0] pal_r, pal_g, pal_b;
-dpram_dc #(.widthad_a(8)) prom_r
-(
-    .clock_a(clk), .address_a(pal_addr[7:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(pal_r),
-    .clock_b(clk), .address_b(ioctl_addr[7:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:8] == 4'h0), .q_b()
-);
-dpram_dc #(.widthad_a(8)) prom_g
-(
-    .clock_a(clk), .address_a(pal_addr[7:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(pal_g),
-    .clock_b(clk), .address_b(ioctl_addr[7:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:8] == 4'h1), .q_b()
-);
-dpram_dc #(.widthad_a(8)) prom_b
-(
-    .clock_a(clk), .address_a(pal_addr[7:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(pal_b),
-    .clock_b(clk), .address_b(ioctl_addr[7:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:8] == 4'h2), .q_b()
-);
+assign pal_prom_a = pal_addr[7:0];
+assign pal_r = pal_prom_r;
+assign pal_g = pal_prom_g;
+assign pal_b = pal_prom_b;
 
-wire [11:0] prom_off = ioctl_addr[11:0];
 reg   [8:0] bgl_addr;
 wire  [7:0] bgl_lo, bgl_hi;
-dpram_dc #(.widthad_a(9)) prom_bgl_lo
-(
-    .clock_a(clk), .address_a(bgl_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(bgl_lo),
-    .clock_b(clk), .address_b(prom_off[8:0] - 9'h100), .data_b(ioctl_dout), .wren_b(prom_wr && prom_off >= 12'h300 && prom_off < 12'h500), .q_b()
-);
-dpram_dc #(.widthad_a(9)) prom_bgl_hi
-(
-    .clock_a(clk), .address_a(bgl_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(bgl_hi),
-    .clock_b(clk), .address_b(prom_off[8:0] - 9'h100), .data_b(ioctl_dout), .wren_b(prom_wr && prom_off >= 12'h500 && prom_off < 12'h700), .q_b()
-);
+assign bgl_prom_a = bgl_addr;
+assign bgl_lo = bgl_prom_d0;
+assign bgl_hi = bgl_prom_d1;
 
 reg   [8:0] spl_addr;
 wire  [7:0] spl_lo, spl_hi;
-dpram_dc #(.widthad_a(9)) prom_spl_lo
-(
-    .clock_a(clk), .address_a(spl_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spl_lo),
-    .clock_b(clk), .address_b(prom_off[8:0] - 9'h100), .data_b(ioctl_dout), .wren_b(prom_wr && prom_off >= 12'h700 && prom_off < 12'h900), .q_b()
-);
-dpram_dc #(.widthad_a(9)) prom_spl_hi
-(
-    .clock_a(clk), .address_a(spl_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spl_hi),
-    .clock_b(clk), .address_b(prom_off[8:0] - 9'h100), .data_b(ioctl_dout), .wren_b(prom_wr && prom_off >= 12'h900 && prom_off < 12'hB00), .q_b()
-);
+assign spl_prom_a = spl_addr;
+assign spl_lo = spl_prom_d0;
+assign spl_hi = spl_prom_d1;
 
 //------------------------------------------------------- Sprite line buffer --------------------------------------------------//
 
@@ -161,15 +133,13 @@ reg   [9:0] lb_eng_addr;
 reg   [7:0] lb_eng_data;
 reg         lb_eng_wr;
 
-dpram_dc #(.widthad_a(10)) line_buf
-(
-    .clock_a(clk), .address_a(lb_disp_addr), .data_a(8'h00), .wren_a(lb_disp_clr), .q_a(lb_disp_q),
-    .clock_b(clk), .address_b(lb_eng_addr), .data_b(lb_eng_data), .wren_b(lb_eng_wr), .q_b()
-);
+assign lb_i.a_addr = {5'd0, lb_disp_addr}; assign lb_i.a_d = 8'h00; assign lb_i.a_we = lb_disp_clr;
+assign lb_i.b_addr = {5'd0, lb_eng_addr}; assign lb_i.b_d = lb_eng_data; assign lb_i.b_we = lb_eng_wr;
+assign lb_disp_q = lb_o.a_q;
 
 //------------------------------------------------------- Tile layers + pixel path --------------------------------------------//
 
-// MAME tilemap scroll: source = screen + scroll - dx; background dx -20 / dy -16, foreground dx -32 / dy -18
+// tilemap scroll: source = screen + scroll - dx; background dx -20 / dy -16, foreground dx -32 / dy -18
 wire [8:0] bx = fpx + bg_sx + 9'd20;
 wire [7:0] by = fpy[7:0] + bg_sy[7:0] + 8'd16;
 wire [8:0] fx = fpx + fg_sx + 9'd32;
@@ -264,9 +234,9 @@ end
 
 //------------------------------------------------------- Sprite engine -------------------------------------------------------//
 
-// MAME draw_sprites: for each of 64 entries at 780 + 2n with sr3[1] bit 6 clear: code = sr3[0] (or (sr3[0] & 3F) + 100
+// sprites: for each of 64 entries at 780 + 2n with sr3[1] bit 6 clear: code = sr3[0] (or (sr3[0] & 3F) + 100
 // when sr2[0] bit 7), colour = sr3[1] & 7F, flips sr2[0] bits 2 (x) / 3 (y), sx = sr1[1] - 40 + 256 * sr2[1] bit 0,
-// sy = 223 - sr1[0]; sr2[0] bit 1 double height, bit 0 double width, as up to four 16 x 16 tiles placed per MAME.
+// sy = 223 - sr1[0]; sr2[0] bit 1 double height, bit 0 double width, as up to four 16 x 16 tiles.
 localparam S_IDLE = 3'd0, S_FETCH = 3'd1, S_TILE = 3'd2, S_DRAW = 3'd3, S_NEXT = 3'd4;
 
 reg  [2:0] st = S_IDLE;
@@ -344,8 +314,8 @@ always @(posedge clk) begin
     p_x[1] <= p_x[0]; p_x[2] <= p_x[1]; p_x[3] <= p_x[2];
     p_c[1] <= p_c[0]; p_hi[1] <= p_hi[0]; p_none[1] <= p_none[0];
 
-    // spritelayout_xevious: planes {plane-2 half + 4, 0, 4}; plane 2 for codes 80-FF is the high nibble of the stored
-    // byte (MAME init_xevious), codes 100-13F have none
+    // sprite layout: planes {plane-2 half + 4, 0, 4}; plane 2 for codes 80-FF is the high nibble of the stored
+    // byte, codes 100-13F have none
     if (p_v[1]) spl_addr <= {r_color[5:0], p_none[1] ? 1'b0 : spb_d[(p_hi[1] ? 3'd7 : 3'd3) - {1'b0, p_c[1]}],
                              spa_q[3'd7 - {1'b0, p_c[1]}], spa_q[3'd3 - {1'b0, p_c[1]}]};
 

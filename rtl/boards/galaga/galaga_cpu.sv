@@ -1,13 +1,13 @@
 //============================================================================
 //
-//  Namco Galaga-family board (CPU board + video board): Galaga, Dig Dug, Xevious, Bosconian
+//  Namco Galaga-family board (CPU board + video boards): Galaga, Dig Dug, Xevious, Bosconian
 //
 //  Memory maps, interrupt and custom-chip wiring per MAME galaga.cpp
 //  (Nicola Salmoria); video counters after Dar's (darfpga) Galaga core.
 //
 //============================================================================
 
-module galaga_board
+module galaga_cpu
 (
     input               clk,            // 49.152 MHz
     input               reset,
@@ -30,10 +30,6 @@ module galaga_board
     input               earom_we,
     output        [7:0] earom_dout,
 
-    input        [24:0] ioctl_addr,
-    input         [7:0] ioctl_dout,
-    input               ioctl_wr0,      // ioctl index 0
-
     output              ce_pix,
     output        [7:0] video_r,
     output        [7:0] video_g,
@@ -50,7 +46,73 @@ module galaga_board
     input        [15:0] hs_address,
     input         [7:0] hs_data_in,
     output        [7:0] hs_data_out,
-    input               hs_write
+    input               hs_write,
+
+    // shared CPU / chip pool (rtl/galaga_dispatcher.sv)
+    output chip_pool_pkg::z80r_i_t     [2:0] z80_i,     // 0 main, 1 sub, 2 sub 2 (sound)
+    input  chip_pool_pkg::z80r_o_t     [2:0] z80_o,
+    output chip_pool_pkg::namco_06xx_i_t     n06_0_i,   // main 06xx
+    input  chip_pool_pkg::namco_06xx_o_t     n06_0_o,
+    output chip_pool_pkg::namco_06xx_i_t     n06_1_i,   // Bosconian's second 06xx
+    input  chip_pool_pkg::namco_06xx_o_t     n06_1_o,
+    output chip_pool_pkg::namco_50xx_i_t     n50_0_i,   // 50xx on the main 06xx (Xevious, Bosconian)
+    input  chip_pool_pkg::namco_50xx_o_t     n50_0_o,
+    output chip_pool_pkg::namco_50xx_i_t     n50_1_i,   // 50xx on the second 06xx (Bosconian)
+    input  chip_pool_pkg::namco_50xx_o_t     n50_1_o,
+    output chip_pool_pkg::namco_51xx_i_t     n51_0_i,
+    input  chip_pool_pkg::namco_51xx_o_t     n51_0_o,
+    output chip_pool_pkg::namco_52xx_i_t     n52_0_i,
+    input  chip_pool_pkg::namco_52xx_o_t     n52_0_o,
+    output chip_pool_pkg::namco_53xx_i_t     n53_0_i,
+    input  chip_pool_pkg::namco_53xx_o_t     n53_0_o,
+    output chip_pool_pkg::namco_54xx_i_t     n54_0_i,
+    input  chip_pool_pkg::namco_54xx_o_t     n54_0_o,
+    output chip_pool_pkg::namco_wsg3_i_t     wsg_0_i,
+    input  chip_pool_pkg::namco_wsg3_o_t     wsg_0_o,
+    output chip_pool_pkg::namco_52xx_snd_i_t n52snd_0_i,
+    input  chip_pool_pkg::namco_52xx_snd_o_t n52snd_0_o,
+    output chip_pool_pkg::namco_54xx_snd_i_t n54snd_0_i,
+    input  chip_pool_pkg::namco_54xx_snd_o_t n54snd_0_o,
+    output chip_pool_pkg::namco_05xx_i_t     n05_0_i,
+    input  chip_pool_pkg::namco_05xx_o_t     n05_0_o,
+
+    // shared ROM blocks (dispatcher), read ports
+    output       [13:0] main_rom_a,     // program ROMs 0000-3FFF, one per CPU
+    input         [7:0] main_rom_d,
+    output       [13:0] sub_rom_a,
+    input         [7:0] sub_rom_d,
+    output       [13:0] sub2_rom_a,
+    input         [7:0] sub2_rom_d,
+    output       [12:0] gfx1_rom_a,     // characters
+    input         [7:0] gfx1_rom_d,
+    output       [13:0] gfx2_rom_a,     // sprites / Xevious background plane 0
+    input         [7:0] gfx2_rom_d,
+    output       [11:0] gfx2b_rom_a,    // Xevious background plane 1 (gfx2 1000-1FFF)
+    input         [7:0] gfx2b_rom_d,
+    output       [14:0] gfx3_rom_a,     // gfx3 0000-4FFF: Dig Dug playfield chars / Xevious sprites / Bosconian dots
+    input         [7:0] gfx3_rom_d,
+    output       [12:0] gfx3b_rom_a,    // Xevious sprite plane 2 (gfx3 5000-6FFF)
+    input         [7:0] gfx3b_rom_d,
+    output       [13:0] gfx4_rom_a,     // Xevious planet map / Dig Dug playfield maps
+    input         [7:0] gfx4_rom_d,
+    output        [9:0] prom0_a,        // proms 000-3FF, two copies (pixel path / sprite engine)
+    input         [7:0] prom0_d,
+    output        [9:0] prom1_a,
+    input         [7:0] prom1_d,
+    output        [7:0] xprom_b_a,      // Xevious: proms 200 blue
+    input         [7:0] xprom_b_d,
+    output        [8:0] xprom_bgl_a,    // Xevious: proms 300 / 500 background lookup
+    input         [7:0] xprom_bgl_d0,
+    input         [7:0] xprom_bgl_d1,
+    output        [8:0] xprom_spl_a,    // Xevious: proms 700 / 900 sprite lookup
+    input         [7:0] xprom_spl_d0,
+    input         [7:0] xprom_spl_d1,
+    output       [13:0] speech_rom_a,   // Bosconian 52xx samples
+    input         [7:0] speech_rom_d,
+
+    // board RAM pool (dispatcher)
+    output ram_pool_pkg::pram_i_t [9:0] pr_i,
+    input  ram_pool_pkg::pram_o_t [9:0] pr_o
 );
 
 //------------------------------------------------------- Clock enables -------------------------------------------------------//
@@ -72,7 +134,7 @@ reg  wdog_reset = 1'b0;
 
 // Power-on RAM clear: after every core reset (game load, OSD reset) sweep 0000-FFFF writing 0 to the game RAMs the
 // loaded variant maps, CPUs and MCUs still held. The FPGA is not always reprogrammed between games, so RAM would keep
-// the previous game's contents; MAME starts every machine with cleared RAM. Dig Dug's EAROM is left alone.
+// the previous game's contents; every game starts from cleared RAM. Dig Dug's EAROM is left alone.
 reg        clr_run = 1'b1;
 reg [15:0] clr_a   = 16'd0;
 always @(posedge clk) begin
@@ -95,20 +157,6 @@ wire v_xev = variant == 8'd5 || variant == 8'd6;
 wire v_xb  = variant == 8'd6;
 wire v_bo  = variant == 8'd7;
 wire has_54xx = ~v_gb & ~v_dd;
-
-//------------------------------------------------------- ROM load map --------------------------------------------------------//
-
-wire main_cs, sub_cs, sub2_cs, gfx1_cs, sub3_cs, gfx2_cs, gfx3_cs, prom_cs, wave_cs, gfx4_cs, speech_cs;
-wire mcu50_cs, mcu51_cs, mcu52_cs, mcu53_cs, mcu54_cs;
-
-selector rom_selector
-(
-    .ioctl_addr(ioctl_addr),
-    .main_cs(main_cs), .sub_cs(sub_cs), .sub2_cs(sub2_cs), .gfx1_cs(gfx1_cs), .sub3_cs(sub3_cs),
-    .gfx2_cs(gfx2_cs), .gfx3_cs(gfx3_cs), .prom_cs(prom_cs), .wave_cs(wave_cs), .gfx4_cs(gfx4_cs),
-    .speech_cs(speech_cs), .mcu50_cs(mcu50_cs), .mcu51_cs(mcu51_cs), .mcu52_cs(mcu52_cs), .mcu53_cs(mcu53_cs),
-    .mcu54_cs(mcu54_cs)
-);
 
 //------------------------------------------------------- Video --------------------------------------------------------------//
 
@@ -139,6 +187,20 @@ reg   [8:0] x_bg_sx = 9'd0, x_fg_sx = 9'd0, x_bg_sy = 9'd0, x_fg_sy = 9'd0;   //
 reg         x_flip = 1'b0;
 wire        flip_screen;
 
+// the video boards' ROM, line buffer and 05xx requests, put on the shared blocks by variant (below)
+wire [12:0] gv_chr_a;
+wire [13:0] gv_spr_a;
+wire [11:0] gv_pfc_a, gv_map_a;
+wire  [9:0] gv_pixp_a, gv_sprp_a;
+wire [11:0] xv_fg_a, xv_bg_a;
+wire [14:0] xv_spa_a;
+wire  [7:0] xv_pal_a;
+wire [11:0] bv_chr_a, bv_spr_a;
+wire  [7:0] bv_dot_a;
+wire  [9:0] bv_pixp_a, bv_sprp_a;
+ram_pool_pkg::pram_i_t        gv_lb_i, xv_lb_i, bv_lbs_i;
+chip_pool_pkg::namco_05xx_i_t gv_n05_i, bv_n05_i;
+
 galaga_video video
 (
     .clk(clk),
@@ -160,13 +222,10 @@ galaga_video video
     .spr1_q(ram1_q_b),
     .spr2_q(ram2_q_b),
     .spr3_q(ram3_q_b),
-    .ioctl_addr(ioctl_addr),
-    .ioctl_dout(ioctl_dout),
-    .gfx1_wr(ioctl_wr0 & gfx1_cs),
-    .gfx2_wr(ioctl_wr0 & gfx2_cs),
-    .gfx3_wr(ioctl_wr0 & gfx3_cs),
-    .gfx4_wr(ioctl_wr0 & gfx4_cs),
-    .prom_wr(ioctl_wr0 & prom_cs),
+    .chr_rom_a(gv_chr_a), .chr_rom_d(gfx1_rom_d), .spr_rom_a(gv_spr_a), .spr_rom_d(gfx2_rom_d),
+    .pfc_rom_a(gv_pfc_a), .pfc_rom_d(gfx3_rom_d), .map_rom_a(gv_map_a), .map_rom_d(gfx4_rom_d),
+    .pix_prom_a(gv_pixp_a), .pix_prom_d(prom0_d), .spr_prom_a(gv_sprp_a), .spr_prom_d(prom1_d),
+    .lb_i(gv_lb_i), .lb_o(pr_o[8]), .star_i(gv_n05_i), .star_o(n05_0_o),
     .red(g_r),
     .green(g_g),
     .blue(g_b),
@@ -201,12 +260,12 @@ xevious_video xvideo
     .sr1_q(ram1_q_b),
     .sr2_q(ram2_q_b),
     .sr3_q(ram3_q_b),
-    .ioctl_addr(ioctl_addr),
-    .ioctl_dout(ioctl_dout),
-    .gfx1_wr(ioctl_wr0 & gfx1_cs),
-    .gfx2_wr(ioctl_wr0 & gfx2_cs),
-    .gfx3_wr(ioctl_wr0 & gfx3_cs),
-    .prom_wr(ioctl_wr0 & prom_cs),
+    .fg_rom_a(xv_fg_a), .fg_rom_d(gfx1_rom_d), .bg_rom_a(xv_bg_a), .bg_rom_d0(gfx2_rom_d), .bg_rom_d1(gfx2b_rom_d),
+    .spa_rom_a(xv_spa_a), .spa_rom_d(gfx3_rom_d), .spb_rom_a(gfx3b_rom_a), .spb_rom_d(gfx3b_rom_d),
+    .pal_prom_a(xv_pal_a), .pal_prom_r(prom0_d), .pal_prom_g(prom1_d), .pal_prom_b(xprom_b_d),
+    .bgl_prom_a(xprom_bgl_a), .bgl_prom_d0(xprom_bgl_d0), .bgl_prom_d1(xprom_bgl_d1),
+    .spl_prom_a(xprom_spl_a), .spl_prom_d0(xprom_spl_d0), .spl_prom_d1(xprom_spl_d1),
+    .lb_i(xv_lb_i), .lb_o(pr_o[8]),
     .red(x_r),
     .green(x_g),
     .blue(x_b)
@@ -235,12 +294,10 @@ bosco_video bvideo
     .dot_x(b_dot_x),
     .dot_y(b_dot_y),
     .dot_attr(b_dot_attr),
-    .ioctl_addr(ioctl_addr),
-    .ioctl_dout(ioctl_dout),
-    .gfx1_wr(ioctl_wr0 & gfx1_cs),
-    .gfx2_wr(ioctl_wr0 & gfx2_cs),
-    .gfx3_wr(ioctl_wr0 & gfx3_cs),
-    .prom_wr(ioctl_wr0 & prom_cs),
+    .chr_rom_a(bv_chr_a), .chr_rom_d(gfx1_rom_d), .spr_rom_a(bv_spr_a), .spr_rom_d(gfx2_rom_d),
+    .dot_rom_a(bv_dot_a), .dot_rom_d(gfx3_rom_d), .pix_prom_a(bv_pixp_a), .pix_prom_d(prom0_d),
+    .spr_prom_a(bv_sprp_a), .spr_prom_d(prom1_d),
+    .lbs_i(bv_lbs_i), .lbs_o(pr_o[8]), .lbd_i(pr_i[9]), .lbd_o(pr_o[9]), .star_i(bv_n05_i), .star_o(n05_0_o),
     .red(o_r),
     .green(o_g),
     .blue(o_b)
@@ -250,14 +307,24 @@ assign video_r = v_xev ? x_r : v_bo ? o_r : g_r;
 assign video_g = v_xev ? x_g : v_bo ? o_g : g_g;
 assign video_b = v_xev ? x_b : v_bo ? o_b : g_b;
 
-wire vblank_start = line_step & (vcnt == 9'd239);       // first vblank line is 240 (MAME line 224)
+// shared ROM blocks hold the same bytes whichever video board reads them; the inactive boards' requests are dropped
+assign gfx1_rom_a  = v_xev ? {1'b0, xv_fg_a} : v_bo ? {1'b0, bv_chr_a} : gv_chr_a;
+assign gfx2_rom_a  = v_xev ? {2'b00, xv_bg_a} : v_bo ? {2'b00, bv_spr_a} : gv_spr_a;
+assign gfx2b_rom_a = xv_bg_a;
+assign gfx3_rom_a  = v_xev ? xv_spa_a : v_bo ? {7'd0, bv_dot_a} : {3'd0, gv_pfc_a};
+assign prom0_a     = v_xev ? {2'b00, xv_pal_a} : v_bo ? bv_pixp_a : gv_pixp_a;    // Xevious: red
+assign prom1_a     = v_xev ? {2'b01, xv_pal_a} : v_bo ? bv_sprp_a : gv_sprp_a;    // Xevious: green
+assign xprom_b_a   = xv_pal_a;
+assign pr_i[8]     = v_xev ? xv_lb_i : v_bo ? bv_lbs_i : gv_lb_i;
+assign n05_0_i     = v_bo ? bv_n05_i : gv_n05_i;
 
-/////////////////////////////  Shared CPU / sound chip pool  /////////////////////////////
+wire vblank_start = line_step & (vcnt == 9'd239);       // first vblank line is 240 (screen line 224)
 
-// Pool chips are driven only through their chip_pool_pkg buses. Exception to the pool's core-reset rule: the Z80s
-// and MB88s keep the board's own reset lines (watchdog, RAM clear, misc latch Q3 / video latch Q7).
+//------------------------------------------------------- CPUs ---------------------------------------------------------------//
 
-// Three Z80s on one shared bus. Each owns a 4-clock window of every 16-clock CPU cycle: ph[3:2] = 0 main, 1 sub, 2 sub2.
+// Three Z80s (dispatcher z80_0-2) on one shared bus. Each owns a 4-clock window of every 16-clock CPU cycle:
+// ph[3:2] = 0 main, 1 sub, 2 sub2. The Z80s and the MB88s keep the board's own reset lines (watchdog, RAM clear,
+// misc latch Q3 / video latch Q7).
 wire [15:0] cpu_a[3];
 wire  [7:0] cpu_do[3];
 wire  [2:0] cpu_mreq_n, cpu_iorq_n, cpu_rd_n, cpu_wr_n, cpu_rfsh_n, cpu_m1_n;
@@ -265,126 +332,28 @@ reg   [7:0] cpu_di[3];
 wire  [2:0] cpu_int_n, cpu_nmi_n;
 wire  [2:0] cpu_reset_n;
 
-// z80_0: main CPU, z80_1: sub CPU, z80_2: sub 2 (sound) CPU - every game (Galaga, Dig Dug, Xevious, Bosconian)
-chip_pool_pkg::z80_i_t z80_0_i, z80_1_i, z80_2_i;
-chip_pool_pkg::z80_o_t z80_0_o, z80_1_o, z80_2_o;
+assign z80_i[0].reset_n = cpu_reset_n[0];  assign z80_i[0].ce = ce_cpu;  assign z80_i[0].int_n = cpu_int_n[0];
+assign z80_i[0].nmi_n   = cpu_nmi_n[0];    assign z80_i[0].di = cpu_di[0];
+assign z80_i[1].reset_n = cpu_reset_n[1];  assign z80_i[1].ce = ce_cpu;  assign z80_i[1].int_n = cpu_int_n[1];
+assign z80_i[1].nmi_n   = cpu_nmi_n[1];    assign z80_i[1].di = cpu_di[1];
+assign z80_i[2].reset_n = cpu_reset_n[2];  assign z80_i[2].ce = ce_cpu;  assign z80_i[2].int_n = cpu_int_n[2];
+assign z80_i[2].nmi_n   = cpu_nmi_n[2];    assign z80_i[2].di = cpu_di[2];
 
-wire [15:0] z80_0_a, z80_1_a, z80_2_a;
-wire  [7:0] z80_0_do, z80_1_do, z80_2_do;
-wire        z80_0_m1_n, z80_0_mreq_n, z80_0_iorq_n, z80_0_rd_n, z80_0_wr_n, z80_0_rfsh_n;
-wire        z80_1_m1_n, z80_1_mreq_n, z80_1_iorq_n, z80_1_rd_n, z80_1_wr_n, z80_1_rfsh_n;
-wire        z80_2_m1_n, z80_2_mreq_n, z80_2_iorq_n, z80_2_rd_n, z80_2_wr_n, z80_2_rfsh_n;
-
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_0
-(
-    .RESET_n(cpu_reset_n[0]), .CLK_n(clk), .CLKEN(z80_0_i.ce), .WAIT_n(1'b1), .INT_n(z80_0_i.int_n), .NMI_n(z80_0_i.nmi_n), .BUSRQ_n(1'b1),
-    .M1_n(z80_0_m1_n), .MREQ_n(z80_0_mreq_n), .IORQ_n(z80_0_iorq_n), .RD_n(z80_0_rd_n), .WR_n(z80_0_wr_n), .RFSH_n(z80_0_rfsh_n),
-    .HALT_n(), .BUSAK_n(), .A(z80_0_a), .DI(z80_0_i.di), .DO(z80_0_do)
-);
-
-assign z80_0_o.a = z80_0_a;           assign z80_0_o.dout = z80_0_do;
-assign z80_0_o.m1_n = z80_0_m1_n;     assign z80_0_o.mreq_n = z80_0_mreq_n; assign z80_0_o.iorq_n = z80_0_iorq_n;
-assign z80_0_o.rd_n = z80_0_rd_n;     assign z80_0_o.wr_n = z80_0_wr_n;     assign z80_0_o.rfsh_n = z80_0_rfsh_n;
-
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_1
-(
-    .RESET_n(cpu_reset_n[1]), .CLK_n(clk), .CLKEN(z80_1_i.ce), .WAIT_n(1'b1), .INT_n(z80_1_i.int_n), .NMI_n(z80_1_i.nmi_n), .BUSRQ_n(1'b1),
-    .M1_n(z80_1_m1_n), .MREQ_n(z80_1_mreq_n), .IORQ_n(z80_1_iorq_n), .RD_n(z80_1_rd_n), .WR_n(z80_1_wr_n), .RFSH_n(z80_1_rfsh_n),
-    .HALT_n(), .BUSAK_n(), .A(z80_1_a), .DI(z80_1_i.di), .DO(z80_1_do)
-);
-
-assign z80_1_o.a = z80_1_a;           assign z80_1_o.dout = z80_1_do;
-assign z80_1_o.m1_n = z80_1_m1_n;     assign z80_1_o.mreq_n = z80_1_mreq_n; assign z80_1_o.iorq_n = z80_1_iorq_n;
-assign z80_1_o.rd_n = z80_1_rd_n;     assign z80_1_o.wr_n = z80_1_wr_n;     assign z80_1_o.rfsh_n = z80_1_rfsh_n;
-
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_2
-(
-    .RESET_n(cpu_reset_n[2]), .CLK_n(clk), .CLKEN(z80_2_i.ce), .WAIT_n(1'b1), .INT_n(z80_2_i.int_n), .NMI_n(z80_2_i.nmi_n), .BUSRQ_n(1'b1),
-    .M1_n(z80_2_m1_n), .MREQ_n(z80_2_mreq_n), .IORQ_n(z80_2_iorq_n), .RD_n(z80_2_rd_n), .WR_n(z80_2_wr_n), .RFSH_n(z80_2_rfsh_n),
-    .HALT_n(), .BUSAK_n(), .A(z80_2_a), .DI(z80_2_i.di), .DO(z80_2_do)
-);
-
-assign z80_2_o.a = z80_2_a;           assign z80_2_o.dout = z80_2_do;
-assign z80_2_o.m1_n = z80_2_m1_n;     assign z80_2_o.mreq_n = z80_2_mreq_n; assign z80_2_o.iorq_n = z80_2_iorq_n;
-assign z80_2_o.rd_n = z80_2_rd_n;     assign z80_2_o.wr_n = z80_2_wr_n;     assign z80_2_o.rfsh_n = z80_2_rfsh_n;
-
-// the board's CPU-side signals
-assign z80_0_i.ce = ce_cpu;  assign z80_0_i.int_n = cpu_int_n[0];  assign z80_0_i.nmi_n = cpu_nmi_n[0];  assign z80_0_i.di = cpu_di[0];
-assign z80_1_i.ce = ce_cpu;  assign z80_1_i.int_n = cpu_int_n[1];  assign z80_1_i.nmi_n = cpu_nmi_n[1];  assign z80_1_i.di = cpu_di[1];
-assign z80_2_i.ce = ce_cpu;  assign z80_2_i.int_n = cpu_int_n[2];  assign z80_2_i.nmi_n = cpu_nmi_n[2];  assign z80_2_i.di = cpu_di[2];
-
-assign cpu_a[0] = z80_0_o.a;  assign cpu_do[0] = z80_0_o.dout;
-assign cpu_a[1] = z80_1_o.a;  assign cpu_do[1] = z80_1_o.dout;
-assign cpu_a[2] = z80_2_o.a;  assign cpu_do[2] = z80_2_o.dout;
-assign cpu_m1_n   = {z80_2_o.m1_n,   z80_1_o.m1_n,   z80_0_o.m1_n};
-assign cpu_mreq_n = {z80_2_o.mreq_n, z80_1_o.mreq_n, z80_0_o.mreq_n};
-assign cpu_iorq_n = {z80_2_o.iorq_n, z80_1_o.iorq_n, z80_0_o.iorq_n};
-assign cpu_rd_n   = {z80_2_o.rd_n,   z80_1_o.rd_n,   z80_0_o.rd_n};
-assign cpu_wr_n   = {z80_2_o.wr_n,   z80_1_o.wr_n,   z80_0_o.wr_n};
-assign cpu_rfsh_n = {z80_2_o.rfsh_n, z80_1_o.rfsh_n, z80_0_o.rfsh_n};
-
-// MB88 x 5 (Namco custom MCUs, rtl/cpu/mb88_sv): the namco_5Xxx modules drive them
-//   mb88_0: 51xx (every game)
-//   mb88_1: 50xx on the main 06xx (Xevious, Bosconian)
-//   mb88_2: 54xx (Galaga, Xevious, Bosconian) - IRQ_ENTRY_STALL 3, the 54xx's own setting
-//   mb88_3: second 50xx (Bosconian)
-//   mb88_4: 52xx (Bosconian), 53xx (Dig Dug)
-chip_pool_pkg::mb88_i_t n51_mb88_i, n50_mb88_i, n54_mb88_i, n50b_mb88_i, n52_mb88_i, n53_mb88_i;
-chip_pool_pkg::mb88_i_t [4:0] mb88_i;
-chip_pool_pkg::mb88_o_t [4:0] mb88_o;
-
-assign mb88_i[0] = n51_mb88_i;
-assign mb88_i[1] = n50_mb88_i;
-assign mb88_i[2] = n54_mb88_i;
-assign mb88_i[3] = n50b_mb88_i;
-assign mb88_i[4] = v_dd ? n53_mb88_i : n52_mb88_i;
-
-genvar mi;
-generate
-    for (mi = 0; mi < 5; mi = mi + 1) begin : g_mb88
-        chip_pool_pkg::mb88_i_t i;
-        assign i = mb88_i[mi];
-        wire  [3:0] r0, r1, r2, r3, ol, oh, p;
-        wire        o_wr;
-        wire [10:0] rom_a;
-        mb88 #(.IRQ_ENTRY_STALL(mi == 2 ? 3 : 0)) mb88
-        (
-            .clock(clk), .ena(i.ena), .reset_n(i.reset_n), .ram_clr(reset),
-            .r0_port_in(i.r_in[3:0]), .r1_port_in(i.r_in[7:4]), .r2_port_in(i.r_in[11:8]), .r3_port_in(i.r_in[15:12]),
-            .r0_port_out(r0), .r1_port_out(r1), .r2_port_out(r2), .r3_port_out(r3),
-            .k_port_in(i.k), .ol_port_out(ol), .oh_port_out(oh), .o_wr(o_wr), .p_port_out(p),
-            .stby_n(1'b1), .tc_n(i.tc_n), .irq_n(i.irq_n), .sc_in_n(1'b1), .si_n(i.si_n),
-            .sc_out_n(), .so_n(), .to_n(),
-            .rom_addr(rom_a), .rom_data(i.rom_d)
-        );
-        assign mb88_o[mi].r_out = {r3, r2, r1, r0};
-        assign mb88_o[mi].o     = {oh, ol};
-        assign mb88_o[mi].o_wr  = o_wr;
-        assign mb88_o[mi].p     = p;
-        assign mb88_o[mi].rom_a = rom_a;
-    end
-endgenerate
+assign cpu_a[0] = z80_o[0].a;  assign cpu_do[0] = z80_o[0].dout;
+assign cpu_a[1] = z80_o[1].a;  assign cpu_do[1] = z80_o[1].dout;
+assign cpu_a[2] = z80_o[2].a;  assign cpu_do[2] = z80_o[2].dout;
+assign cpu_m1_n   = {z80_o[2].m1_n,   z80_o[1].m1_n,   z80_o[0].m1_n};
+assign cpu_mreq_n = {z80_o[2].mreq_n, z80_o[1].mreq_n, z80_o[0].mreq_n};
+assign cpu_iorq_n = {z80_o[2].iorq_n, z80_o[1].iorq_n, z80_o[0].iorq_n};
+assign cpu_rd_n   = {z80_o[2].rd_n,   z80_o[1].rd_n,   z80_o[0].rd_n};
+assign cpu_wr_n   = {z80_o[2].wr_n,   z80_o[1].wr_n,   z80_o[0].wr_n};
+assign cpu_rfsh_n = {z80_o[2].rfsh_n, z80_o[1].rfsh_n, z80_o[0].rfsh_n};
 
 // program ROMs (0000-3FFF), one per CPU
 wire [7:0] rom_q[3];
-
-dpram_dc #(.widthad_a(14)) main_rom
-(
-    .clock_a(clk), .address_a(cpu_a[0][13:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(rom_q[0]),
-    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & main_cs & ~ioctl_addr[14]), .q_b()
-);
-
-dpram_dc #(.widthad_a(14)) sub_rom
-(
-    .clock_a(clk), .address_a(cpu_a[1][13:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(rom_q[1]),
-    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & sub_cs), .q_b()
-);
-
-dpram_dc #(.widthad_a(14)) sub2_rom
-(
-    .clock_a(clk), .address_a(cpu_a[2][13:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(rom_q[2]),
-    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & sub2_cs), .q_b()
-);
+assign main_rom_a = cpu_a[0][13:0];  assign rom_q[0] = main_rom_d;
+assign sub_rom_a  = cpu_a[1][13:0];  assign rom_q[1] = sub_rom_d;
+assign sub2_rom_a = cpu_a[2][13:0];  assign rom_q[2] = sub2_rom_d;
 
 //------------------------------------------------------- Shared bus ----------------------------------------------------------//
 
@@ -397,7 +366,7 @@ wire        bmem = ~hs_access & own_ok & ~cpu_mreq_n[own] & cpu_rfsh_n[own];
 wire        brd  = bmem & ~cpu_rd_n[own];
 wire        bwr  = hs_access ? hs_write : bmem & ~cpu_wr_n[own] & (slot == 2'd0);   // one write strobe per bus cycle
 
-// address decode (galaga.cpp memory map; mirrors as in the CPU board decode table)
+// address decode (memory map; mirrors as in the CPU board decode table)
 wire cs_rom    = ba[15:14] == 2'b00;
 wire cs_io     = ba[15:11] == 5'b01101;                          // 6800-6FFF
 wire cs_dsw    = cs_io & (ba[5:4] == 2'b00) & ~v_dd;             // read 6800-6807 (Dig Dug reads its DIPs through the 53xx)
@@ -431,11 +400,10 @@ wire       bwr_ram = bwr | clr_run;                               // RAM write s
 wire  [7:0] vram_q, ram1_q, ram2_q, ram3_q;
 wire [10:0] ra = (v_xev | v_bo) ? ba[10:0] : {1'b0, ba[9:0]};   // Xevious / Bosconian RAM 1 is 2K
 
-dpram_dc #(.widthad_a(12)) vram
-(
-    .clock_a(clk), .address_a(v_bo ? ba[11:0] : {1'b0, ba[10:0]}), .data_a(bdo), .wren_a(bwr_ram & cs_vram), .q_a(vram_q),
-    .clock_b(clk), .address_b(v_bo ? bvram_addr_b : {1'b0, vram_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(vram_q_b)
-);
+assign pr_i[0].a_addr = {3'd0, (v_bo ? ba[11:0] : {1'b0, ba[10:0]})}; assign pr_i[0].a_d = bdo; assign pr_i[0].a_we = bwr_ram & cs_vram;
+assign pr_i[0].b_addr = {3'd0, (v_bo ? bvram_addr_b : {1'b0, vram_addr_b})}; assign pr_i[0].b_d = 8'h00; assign pr_i[0].b_we = 1'b0;
+assign vram_q = pr_o[0].a_q;
+assign vram_q_b = pr_o[0].b_q;
 
 // Bosconian registers, and copies of the sprite / dot registers held in video RAM (for the video's engine)
 always @(posedge clk) begin
@@ -458,49 +426,42 @@ always @(posedge clk) begin
     end
 end
 
-dpram_dc #(.widthad_a(11)) ram1
-(
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram1), .q_a(ram1_q),
-    .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram1_q_b)
-);
+assign pr_i[1].a_addr = {4'd0, (ra)}; assign pr_i[1].a_d = bdo; assign pr_i[1].a_we = bwr_ram & cs_ram1;
+assign pr_i[1].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[1].b_d = 8'h00; assign pr_i[1].b_we = 1'b0;
+assign ram1_q = pr_o[1].a_q;
+assign ram1_q_b = pr_o[1].b_q;
 
-dpram_dc #(.widthad_a(11)) ram2
-(
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram2), .q_a(ram2_q),
-    .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram2_q_b)
-);
+assign pr_i[2].a_addr = {4'd0, (ra)}; assign pr_i[2].a_d = bdo; assign pr_i[2].a_we = bwr_ram & cs_ram2;
+assign pr_i[2].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[2].b_d = 8'h00; assign pr_i[2].b_we = 1'b0;
+assign ram2_q = pr_o[2].a_q;
+assign ram2_q_b = pr_o[2].b_q;
 
-dpram_dc #(.widthad_a(11)) ram3
-(
-    .clock_a(clk), .address_a(ra), .data_a(bdo), .wren_a(bwr_ram & cs_ram3), .q_a(ram3_q),
-    .clock_b(clk), .address_b(v_xev ? xspr_addr_b : {1'b0, spr_addr_b}), .data_b(8'h00), .wren_b(1'b0), .q_b(ram3_q_b)
-);
+assign pr_i[3].a_addr = {4'd0, (ra)}; assign pr_i[3].a_d = bdo; assign pr_i[3].a_we = bwr_ram & cs_ram3;
+assign pr_i[3].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[3].b_d = 8'h00; assign pr_i[3].b_we = 1'b0;
+assign ram3_q = pr_o[3].a_q;
+assign ram3_q_b = pr_o[3].b_q;
 
 // Xevious tile RAMs; port B: xevious_video
 wire  [7:0] fgc_q, bgc_q, fgv_q, bgv_q;
 
-dpram_dc #(.widthad_a(11)) x_fgc
-(
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_fgc), .q_a(fgc_q),
-    .clock_b(clk), .address_b(xfg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(fgc_q_b)
-);
-dpram_dc #(.widthad_a(11)) x_bgc
-(
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_bgc), .q_a(bgc_q),
-    .clock_b(clk), .address_b(xbg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(bgc_q_b)
-);
-dpram_dc #(.widthad_a(11)) x_fgv
-(
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_fgv), .q_a(fgv_q),
-    .clock_b(clk), .address_b(xfg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(fgv_q_b)
-);
-dpram_dc #(.widthad_a(11)) x_bgv
-(
-    .clock_a(clk), .address_a(ba[10:0]), .data_a(bdo), .wren_a(bwr_ram & cs_bgv), .q_a(bgv_q),
-    .clock_b(clk), .address_b(xbg_addr_b), .data_b(8'h00), .wren_b(1'b0), .q_b(bgv_q_b)
-);
+assign pr_i[4].a_addr = {4'd0, (ba[10:0])}; assign pr_i[4].a_d = bdo; assign pr_i[4].a_we = bwr_ram & cs_fgc;
+assign pr_i[4].b_addr = {4'd0, (xfg_addr_b)}; assign pr_i[4].b_d = 8'h00; assign pr_i[4].b_we = 1'b0;
+assign fgc_q = pr_o[4].a_q;
+assign fgc_q_b = pr_o[4].b_q;
+assign pr_i[5].a_addr = {4'd0, (ba[10:0])}; assign pr_i[5].a_d = bdo; assign pr_i[5].a_we = bwr_ram & cs_bgc;
+assign pr_i[5].b_addr = {4'd0, (xbg_addr_b)}; assign pr_i[5].b_d = 8'h00; assign pr_i[5].b_we = 1'b0;
+assign bgc_q = pr_o[5].a_q;
+assign bgc_q_b = pr_o[5].b_q;
+assign pr_i[6].a_addr = {4'd0, (ba[10:0])}; assign pr_i[6].a_d = bdo; assign pr_i[6].a_we = bwr_ram & cs_fgv;
+assign pr_i[6].b_addr = {4'd0, (xfg_addr_b)}; assign pr_i[6].b_d = 8'h00; assign pr_i[6].b_we = 1'b0;
+assign fgv_q = pr_o[6].a_q;
+assign fgv_q_b = pr_o[6].b_q;
+assign pr_i[7].a_addr = {4'd0, (ba[10:0])}; assign pr_i[7].a_d = bdo; assign pr_i[7].a_we = bwr_ram & cs_bgv;
+assign pr_i[7].b_addr = {4'd0, (xbg_addr_b)}; assign pr_i[7].b_d = 8'h00; assign pr_i[7].b_we = 1'b0;
+assign bgv_q = pr_o[7].a_q;
+assign bgv_q_b = pr_o[7].b_q;
 
-// Xevious CRTC (MAME xevious_vh_latch_w): register = A7-A4, value = A0 << 8 | data
+// Xevious CRTC: register = A7-A4, value = A0 << 8 | data
 always @(posedge clk) begin
     if (sys_reset) x_flip <= 1'b0;
     else if (bwr & cs_crtc) begin
@@ -515,7 +476,7 @@ always @(posedge clk) begin
     end
 end
 
-// Xevious planet map (MAME xevious_bb_r, schematic 9B): F000-F001 writes set BS0/BS1; reads return BB0/BB1 looked up
+// Xevious planet map (schematic 9B): F000-F001 writes set BS0/BS1; reads return BB0/BB1 looked up
 // through ROMs 2A (gfx4 0000), 2B (1000) and 2C (3000). The lookup runs after each BS write, long before the read.
 reg  [7:0] x_bs0 = 8'd0, x_bs1 = 8'd0;
 reg  [7:0] x_bb0 = 8'd0, x_bb1 = 8'd0;
@@ -529,11 +490,8 @@ wire [7:0] pm_q = (v_xb && pm_addr[13:12] == 2'd0) ? {pm_q_raw[3], pm_q_raw[7], 
                                                        pm_q_raw[2], pm_q_raw[6], pm_q_raw[4], pm_q_raw[0]} : pm_q_raw;
 wire [12:0] adr_2b = {x_bs1[6:1], x_bs0[7:1]};
 
-dpram_dc #(.widthad_a(14)) planet_rom
-(
-    .clock_a(clk), .address_a(pm_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(pm_q_raw),
-    .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & gfx4_cs), .q_b()
-);
+assign gfx4_rom_a = v_xev ? pm_addr : {2'b00, gv_map_a};      // Dig Dug: galaga_video's playfield maps
+assign pm_q_raw = gfx4_rom_d;
 
 always @(posedge clk) begin
     if (bwr & cs_bb) begin
@@ -710,124 +668,74 @@ wire [7:0] n51_q;
 wire       mcu_reset_n = ~sys_reset & misc_latch[3];
 
 
-namco_06xx n06
-(
-    .clk(clk),
-    .reset(sys_reset),
-    .pause(pause),
-    .irq_on_access(~v_dd & ~v_bo),   // Galaga family + Xevious: Dar's access-triggered 06xx
-    .cpu_dout(bdo),
-    .data_wr(bwr & cs_06xx & ~ba[8]),
-    .data_rd(brd & cs_06xx & ~ba[8]),
-    .ctrl_wr(bwr & cs_06xx & ba[8]),
-    .ctrl_rd(cs_06xx & ba[8]),
-    .cpu_din(n06_q),
-    .nmi_n(n06_nmi_n),
-    .chipsel(n06_chipsel),
-    .rw0(n06_rw0),
-    .chip0_din(n51_q),
-    .chip1_din(v_dd ? n53_q : 8'hFF),
-    .chip2_din((v_xev | v_bo) ? n50_q : 8'hFF),
-    .chip3_din(8'hFF),
-    .chip_dout(n06_chip_dout),
-    .chip_wr(n06_chip_wr)
-);
+assign n06_0_i.reset = sys_reset;
+assign n06_0_i.irq_on_access = ~v_dd & ~v_bo;
+assign n06_0_i.cpu_dout = bdo;
+assign n06_0_i.data_wr = bwr & cs_06xx & ~ba[8];
+assign n06_0_i.data_rd = brd & cs_06xx & ~ba[8];
+assign n06_0_i.ctrl_wr = bwr & cs_06xx & ba[8];
+assign n06_0_i.ctrl_rd = cs_06xx & ba[8];
+assign n06_q = n06_0_o.cpu_din;
+assign n06_nmi_n = n06_0_o.nmi_n;
+assign n06_chipsel = n06_0_o.chipsel;
+assign n06_rw0 = n06_0_o.rw0;
+assign n06_0_i.chip0_din = n51_q;
+assign n06_0_i.chip1_din = v_dd ? n53_q : 8'hFF;
+assign n06_0_i.chip2_din = (v_xev | v_bo) ? n50_q : 8'hFF;
+assign n06_0_i.chip3_din = 8'hFF;
+assign n06_chip_dout = n06_0_o.chip_dout;
+assign n06_chip_wr = n06_0_o.chip_wr;
 
-namco_51xx n51
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(mcu_reset_n),
-    .chip_sel(n06_chipsel[0]),
-    .rw_in(n06_rw0),
-    .data_out(n51_q),
-    .wr_en(n06_chip_wr[0]),
-    .wr_data(n06_chip_dout),
-    .in_a(in0),
-    .in_b(in1),
-    .p_port_out(),
-    .rom_wr(ioctl_wr0 & mcu51_cs),
-    .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout),
-    .vblank(video_vblank),
-    .mb88_i(n51_mb88_i),
-    .mb88_o(mb88_o[0])
-);
+assign n51_0_i.ena = ce_mcu;
+assign n51_0_i.reset_n = mcu_reset_n;
+assign n51_0_i.chip_sel = n06_chipsel[0];
+assign n51_0_i.rw_in = n06_rw0;
+assign n51_q = n51_0_o.data_out;
+assign n51_0_i.wr_en = n06_chip_wr[0];
+assign n51_0_i.wr_data = n06_chip_dout;
+assign n51_0_i.in_a = in0;
+assign n51_0_i.in_b = in1;
+assign n51_0_i.vblank = video_vblank;
 
 // Xevious: 50xx on 06xx chip 2
-namco_50xx n50
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(mcu_reset_n),
-    .chip_sel(n06_chipsel[2] & (v_xev | v_bo)),
-    .rw_in(n06_rw0),
-    .data_out(n50_q),
-    .wr_en(n06_chip_wr[2] & (v_xev | v_bo)),
-    .wr_data(n06_chip_dout),
-    .rom_wr(ioctl_wr0 & mcu50_cs),
-    .rom_addr_in(ioctl_addr[10:0]),
-    .rom_data_in(ioctl_dout),
-    .mb88_i(n50_mb88_i),
-    .mb88_o(mb88_o[1])
-);
+assign n50_0_i.ena = ce_mcu;
+assign n50_0_i.reset_n = mcu_reset_n;
+assign n50_0_i.chip_sel = n06_chipsel[2] & (v_xev | v_bo);
+assign n50_0_i.rw_in = n06_rw0;
+assign n50_q = n50_0_o.data_out;
+assign n50_0_i.wr_en = n06_chip_wr[2] & (v_xev | v_bo);
+assign n50_0_i.wr_data = n06_chip_dout;
 
 // Dig Dug: 53xx DIP reader on 06xx chip 1; K3-K1 = misc latch Q7-Q5
 
-namco_53xx n53
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(mcu_reset_n),
-    .chip_sel(n06_chipsel[1] & v_dd),
-    .data_out(n53_q),
-    .k_in({misc_latch[7:5], 1'b0}),
-    .in_a(dswa),
-    .in_b(dswb),
-    .rom_wr(ioctl_wr0 & mcu53_cs),
-    .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout),
-    .mb88_i(n53_mb88_i),
-    .mb88_o(mb88_o[4])
-);
+assign n53_0_i.ena = ce_mcu;
+assign n53_0_i.reset_n = mcu_reset_n;
+assign n53_0_i.chip_sel = n06_chipsel[1] & v_dd;
+assign n53_q = n53_0_o.data_out;
+assign n53_0_i.k_in = {misc_latch[7:5], 1'b0};
+assign n53_0_i.in_a = dswa;
+assign n53_0_i.in_b = dswb;
 
 wire [3:0] n54_o0, n54_o1, n54_r1;
 
-namco_54xx n54
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(mcu_reset_n),
-    .chip_sel(n06_chipsel[3] & has_54xx),
-    .wr_en(n06_chip_wr[3] & has_54xx),
-    .wr_data(n06_chip_dout),
-    .discrete_o0(n54_o0),
-    .discrete_o1(n54_o1),
-    .discrete_r1(n54_r1),
-    .rom_wr(ioctl_wr0 & mcu54_cs),
-    .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout),
-    .mb88_i(n54_mb88_i),
-    .mb88_o(mb88_o[2])
-);
+assign n54_0_i.ena = ce_mcu;
+assign n54_0_i.reset_n = mcu_reset_n;
+assign n54_0_i.chip_sel = n06_chipsel[3] & has_54xx;
+assign n54_0_i.wr_en = n06_chip_wr[3] & has_54xx;
+assign n54_0_i.wr_data = n06_chip_dout;
+assign n54_o0 = n54_0_o.discrete_o0;
+assign n54_o1 = n54_0_o.discrete_o1;
+assign n54_r1 = n54_0_o.discrete_r1;
 
 //------------------------------------------------------- Sound -------------------------------------------------------------//
 
 wire signed [15:0] wsg_audio, n54_audio;
 
-namco_wsg3 wsg
-(
-    .clk(clk),
-    .reset(sys_reset),
-    .pause(pause),
-    .reg_addr(ba[4:0]),
-    .reg_data(bdo[3:0]),
-    .reg_wr(bwr & cs_wsg),
-    .wave_addr(ioctl_addr[7:0]),
-    .wave_data(ioctl_dout),
-    .wave_wr(ioctl_wr0 & wave_cs),
-    .audio(wsg_audio)
-);
+assign wsg_0_i.reset = sys_reset;
+assign wsg_0_i.reg_addr = ba[4:0];
+assign wsg_0_i.reg_data = bdo[3:0];
+assign wsg_0_i.reg_wr = bwr & cs_wsg;
+assign wsg_audio = wsg_0_o.audio;
 
 //------------------------------------------------------- Bosconian: second 06xx, 50xx, 52xx ----------------------------------//
 
@@ -840,45 +748,31 @@ wire [3:0] n06b_chip_wr;
 wire [7:0] n50b_q;
 wire       vreset_n = ~sys_reset & video_latch[7];
 
-namco_06xx #(.BASE_DIV(8192)) n06b
-(
-    .clk(clk),
-    .reset(sys_reset | ~v_bo),
-    .pause(pause),
-    .irq_on_access(1'b0),
-    .cpu_dout(bdo),
-    .data_wr(bwr & cs_06xx1 & ~ba[8]),
-    .data_rd(brd & cs_06xx1 & ~ba[8]),
-    .ctrl_wr(bwr & cs_06xx1 & ba[8]),
-    .ctrl_rd(cs_06xx1 & ba[8]),
-    .cpu_din(n06b_q),
-    .nmi_n(n06b_nmi_n),
-    .chipsel(n06b_chipsel),
-    .rw0(n06b_rw0),
-    .chip0_din(n50b_q),
-    .chip1_din(8'hFF),
-    .chip2_din(8'hFF),
-    .chip3_din(8'hFF),
-    .chip_dout(n06b_chip_dout),
-    .chip_wr(n06b_chip_wr)
-);
+assign n06_1_i.reset = sys_reset | ~v_bo;
+assign n06_1_i.irq_on_access = 1'b0;
+assign n06_1_i.cpu_dout = bdo;
+assign n06_1_i.data_wr = bwr & cs_06xx1 & ~ba[8];
+assign n06_1_i.data_rd = brd & cs_06xx1 & ~ba[8];
+assign n06_1_i.ctrl_wr = bwr & cs_06xx1 & ba[8];
+assign n06_1_i.ctrl_rd = cs_06xx1 & ba[8];
+assign n06b_q = n06_1_o.cpu_din;
+assign n06b_nmi_n = n06_1_o.nmi_n;
+assign n06b_chipsel = n06_1_o.chipsel;
+assign n06b_rw0 = n06_1_o.rw0;
+assign n06_1_i.chip0_din = n50b_q;
+assign n06_1_i.chip1_din = 8'hFF;
+assign n06_1_i.chip2_din = 8'hFF;
+assign n06_1_i.chip3_din = 8'hFF;
+assign n06b_chip_dout = n06_1_o.chip_dout;
+assign n06b_chip_wr = n06_1_o.chip_wr;
 
-namco_50xx n50b
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(vreset_n),
-    .chip_sel(n06b_chipsel[0]),
-    .rw_in(n06b_rw0),
-    .data_out(n50b_q),
-    .wr_en(n06b_chip_wr[0]),
-    .wr_data(n06b_chip_dout),
-    .rom_wr(ioctl_wr0 & mcu50_cs),
-    .rom_addr_in(ioctl_addr[10:0]),
-    .rom_data_in(ioctl_dout),
-    .mb88_i(n50b_mb88_i),
-    .mb88_o(mb88_o[3])
-);
+assign n50_1_i.ena = ce_mcu;
+assign n50_1_i.reset_n = vreset_n;
+assign n50_1_i.chip_sel = n06b_chipsel[0];
+assign n50_1_i.rw_in = n06b_rw0;
+assign n50b_q = n50_1_o.data_out;
+assign n50_1_i.wr_en = n06b_chip_wr[0];
+assign n50_1_i.wr_data = n06b_chip_dout;
 
 // 52xx speech: SI = GND (A12-A15 are active-low chip selects of the three 4K ROMs), TC = 555 astable
 // (33k, 10k, 4.7 nF: 172.6 us = 8485 clocks)
@@ -897,58 +791,36 @@ end
 reg sp_ff_d;
 always @(posedge clk) sp_ff_d <= sp_ff;
 
-dpram_dc #(.widthad_a(14)) speech_rom
-(
-    .clock_a(clk), .address_a(sp_rd), .data_a(8'h00), .wren_a(1'b0), .q_a(sp_q),
-    .clock_b(clk), .address_b(ioctl_addr[13:0] - 14'h0000), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & speech_cs), .q_b()
-);
+assign speech_rom_a = sp_rd;
+assign sp_q = speech_rom_d;
 
 reg [13:0] t555 = 14'd0;
 always @(posedge clk) t555 <= (t555 == 14'd8484) ? 14'd0 : t555 + 14'd1;
 wire n52_tc_n = ~(t555 < 14'd256);
 
-namco_52xx n52
-(
-    .clk(clk),
-    .ena(ce_mcu),
-    .reset_n(vreset_n),
-    .chip_sel(n06b_chipsel[1]),
-    .wr_en(n06b_chip_wr[1]),
-    .wr_data(n06b_chip_dout),
-    .si(1'b0),
-    .tc_n(n52_tc_n),
-    .p_out(n52_p),
-    .sample_addr(n52_addr),
-    .sample_data(sp_ff_d ? 8'hFF : sp_q),
-    .rom_wr(ioctl_wr0 & mcu52_cs),
-    .rom_addr_in(ioctl_addr[9:0]),
-    .rom_data_in(ioctl_dout),
-    .mb88_i(n52_mb88_i),
-    .mb88_o(mb88_o[4])
-);
+assign n52_0_i.ena = ce_mcu;
+assign n52_0_i.reset_n = vreset_n;
+assign n52_0_i.chip_sel = n06b_chipsel[1];
+assign n52_0_i.wr_en = n06b_chip_wr[1];
+assign n52_0_i.wr_data = n06b_chip_dout;
+assign n52_0_i.si = 1'b0;
+assign n52_0_i.tc_n = n52_tc_n;
+assign n52_p = n52_0_o.p_out;
+assign n52_addr = n52_0_o.sample_addr;
+assign n52_0_i.sample_data = sp_ff_d ? 8'hFF : sp_q;
 
 wire signed [31:0] n52_volts;
-namco_52xx_snd n52_snd
-(
-    .clk(clk),
-    .reset(sys_reset | ~v_bo),
-    .pause(pause),
-    .p_data(n52_p),
-    .volts(n52_volts)
-);
+assign n52snd_0_i.reset = sys_reset | ~v_bo;
+assign n52snd_0_i.p_data = n52_p;
+assign n52_volts = n52snd_0_o.volts;
 
-namco_54xx_snd #(.BOARD(0)) n54_snd
-(
-    .clk(clk),
-    .reset(sys_reset),
-    .pause(pause),
-    .o0_data(n54_o0),
-    .o1_data(n54_o1),
-    .r1_data(n54_r1),
-    .bosco(v_bo),
-    .ext_volts(n52_volts),
-    .audio(n54_audio)
-);
+assign n54snd_0_i.reset = sys_reset;
+assign n54snd_0_i.o0_data = n54_o0;
+assign n54snd_0_i.o1_data = n54_o1;
+assign n54snd_0_i.r1_data = n54_r1;
+assign n54snd_0_i.bosco = v_bo;
+assign n54snd_0_i.ext_volts = n52_volts;
+assign n54_audio = n54snd_0_o.audio;
 
 wire signed [15:0] n54_gated = has_54xx ? n54_audio : 16'sd0;
 wire signed [16:0] mix = wsg_audio + n54_gated;

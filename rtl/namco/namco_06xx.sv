@@ -33,7 +33,7 @@ module namco_06xx #(parameter BASE_DIV = 1024)   // clk / BASE_DIV = the 06xx cl
 
     // chips 0-3
     output wire  [3:0] chipsel,     // select pulse per chip
-    output wire        rw0,         // R/W direction to chip 0 (MAME binds rw_callback<0> only)
+    output wire        rw0,         // R/W direction to chip 0 (chip 0 only)
     input  wire  [7:0] chip0_din, chip1_din, chip2_din, chip3_din,
     output wire  [7:0] chip_dout,   // write data to the selected chips
     output wire  [3:0] chip_wr      // per-chip write strobe

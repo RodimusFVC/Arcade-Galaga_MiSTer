@@ -2,7 +2,7 @@
 //
 //  Namco WSG, 3 voices (Pac-Man / Galaga register map)
 //
-//  Per MAME sound/namco.cpp pacman_sound_w: 32 four-bit registers,
+//  Per MAME sound/namco.cpp: 32 four-bit registers,
 //  voice 0 at 05 (waveform) / 10-14 (frequency, 20 bits) / 15 (volume),
 //  voice 1 at 0A / 16-19 / 1A, voice 2 at 0F / 1B-1E / 1F. 96 kHz: each
 //  voice's accumulator adds its frequency and indexes a 32-sample waveform
@@ -81,7 +81,7 @@ always @(posedge clk) begin
         3'd2: step <= 3'd3;
         3'd3: begin
             mix    <= mix + term;
-            if (vol[v] != 4'd0) acc[v] <= acc[v] + freq[v];      // MAME skips silent voices
+            if (vol[v] != 4'd0) acc[v] <= acc[v] + freq[v];      // silent voices hold their phase
             if (v == 2'd2) step <= 3'd4;
             else begin v <= v + 2'd1; step <= 3'd1; end
         end

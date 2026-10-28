@@ -3,7 +3,7 @@
 //  Bosconian video: scrolling playfield, radar panel, 6 sprites, radar dots,
 //  05xx starfield
 //
-//  Per MAME bosco.cpp (Nicola Salmoria). MAME's Bosconian screen is y 16-239,
+//  Per MAME bosco.cpp (Nicola Salmoria). The Bosconian screen is y 16-239,
 //  i.e. y = V counter; x 0-287 as the Galaga boards. Composition at picture
 //  position c: dots on top; c >= 224 the radar tiles; c < 224 the playfield
 //  (lookup F transparent) over the sprites over the stars. The hardware skips
@@ -27,7 +27,7 @@ module bosco_video
     input         [5:0] star_ctl,       // 9830: X speed, Y speed
     input               star_en,        // after the first STARCLR write
     input         [1:0] star_sets,      // video latch Q4, Q5
-    input               flip,           // video latch Q0 inverted (MAME): game flip
+    input               flip,           // video latch Q0 inverted: game flip
     input               crt_flip,
 
     // video RAM 8000-8FFF: 000 radar codes, 400 playfield codes, 800 radar attributes, C00 playfield attributes
@@ -41,13 +41,24 @@ module bosco_video
     input       [127:0] dot_y,          // 16 bytes at BF0
     input       [127:0] dot_attr,       // 16 bytes at 9800
 
-    // ROM / PROM load (ioctl index 0)
-    input        [24:0] ioctl_addr,
-    input         [7:0] ioctl_dout,
-    input               gfx1_wr,
-    input               gfx2_wr,
-    input               gfx3_wr,
-    input               prom_wr,
+    // shared ROM blocks (rtl/galaga_dispatcher.sv), read ports
+    output       [11:0] chr_rom_a,      // gfx1 characters
+    input         [7:0] chr_rom_d,
+    output       [11:0] spr_rom_a,      // gfx2 sprites
+    input         [7:0] spr_rom_d,
+    output        [7:0] dot_rom_a,      // gfx3 radar dots
+    input         [7:0] dot_rom_d,
+    output        [9:0] pix_prom_a,     // proms 000-3FF, pixel path copy
+    input         [7:0] pix_prom_d,
+    output        [9:0] spr_prom_a,     // proms 000-3FF, sprite engine copy
+    input         [7:0] spr_prom_d,
+
+    output ram_pool_pkg::pram_i_t lbs_i,      // sprite line buffer (RAM pool block)
+    input  ram_pool_pkg::pram_o_t lbs_o,
+    output ram_pool_pkg::pram_i_t lbd_i,      // radar dot line buffer (RAM pool block)
+    input  ram_pool_pkg::pram_o_t lbd_o,
+    output chip_pool_pkg::namco_05xx_i_t star_i,  // 05xx starfield (chip pool)
+    input  chip_pool_pkg::namco_05xx_o_t star_o,
 
     output reg    [7:0] red = 8'd0,
     output reg    [7:0] green = 8'd0,
@@ -56,14 +67,14 @@ module bosco_video
 
 wire [8:0] px0   = (hcnt >= 9'h0F0) ? hcnt - 9'h0F0 : hcnt + 9'd144;
 wire [8:0] px    = crt_flip ? 9'd287 - px0 : px0;
-wire [7:0] my    = crt_flip ? 8'd255 - vcnt[7:0] : vcnt[7:0];    // MAME y (16-239)
+wire [7:0] my    = crt_flip ? 8'd255 - vcnt[7:0] : vcnt[7:0];    // screen y (16-239)
 wire       h_vis = (hcnt >= 9'h0F0) || (hcnt < 9'h090);
 wire       v_vis = (vcnt >= 9'd16) && (vcnt < 9'd240);
 // composed picture position: upright, H 221-223 are skipped (radar moves 3 left); flipped, the radar is at the left
 // and moves 3 right
 wire [8:0] cx    = flip ? ((px < 9'd67) ? px - 9'd3 : px) : ((px < 9'd221) ? px : px + 9'd3);
 wire       blank = flip ? px < 9'd3 : px >= 9'd285;
-// tile layers flip with the screen (MAME tilemap flip): fetch at the mirrored position
+// tile layers flip with the screen: fetch at the mirrored position
 wire [8:0] tx    = flip ? 9'd287 - cx : cx;
 wire [7:0] ty    = flip ? 8'd255 - my : my;
 
@@ -71,44 +82,29 @@ wire [7:0] ty    = flip ? 8'd255 - my : my;
 
 reg  [11:0] chr_addr;
 wire  [7:0] chr_q;
-dpram_dc #(.widthad_a(12)) chr_rom
-(
-    .clock_a(clk), .address_a(chr_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(chr_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr && ioctl_addr[12] == 1'b0), .q_b()
-);
+assign chr_rom_a = chr_addr;
+assign chr_q = chr_rom_d;
 
 reg  [11:0] spr_rom_addr;
 wire  [7:0] spr_rom_q;
-dpram_dc #(.widthad_a(12)) spr_rom
-(
-    .clock_a(clk), .address_a(spr_rom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spr_rom_q),
-    .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr && ioctl_addr[13:12] == 2'd0), .q_b()
-);
+assign spr_rom_a = spr_rom_addr;
+assign spr_rom_q = spr_rom_d;
 
 reg   [7:0] dot_rom_addr;
 wire  [7:0] dot_rom_q;
-dpram_dc #(.widthad_a(8)) dot_rom
-(
-    .clock_a(clk), .address_a(dot_rom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(dot_rom_q),
-    .clock_b(clk), .address_b(ioctl_addr[7:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && ioctl_addr[16:8] == 9'h180), .q_b()
-);
+assign dot_rom_a = dot_rom_addr;
+assign dot_rom_q = dot_rom_d;
 
 // "proms": 000 palette, 020 lookup (characters | 10, sprites as is)
 reg   [9:0] pix_prom_addr;
 wire  [7:0] pix_prom_q;
-dpram_dc #(.widthad_a(10)) pix_prom
-(
-    .clock_a(clk), .address_a(pix_prom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(pix_prom_q),
-    .clock_b(clk), .address_b(ioctl_addr[9:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:10] == 2'b00), .q_b()
-);
+assign pix_prom_a = pix_prom_addr;
+assign pix_prom_q = pix_prom_d;
 
 reg   [9:0] spr_prom_addr;
 wire  [7:0] spr_prom_q;
-dpram_dc #(.widthad_a(10)) spr_prom
-(
-    .clock_a(clk), .address_a(spr_prom_addr), .data_a(8'h00), .wren_a(1'b0), .q_a(spr_prom_q),
-    .clock_b(clk), .address_b(ioctl_addr[9:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:10] == 2'b00), .q_b()
-);
+assign spr_prom_a = spr_prom_addr;
+assign spr_prom_q = spr_prom_d;
 
 //------------------------------------------------------- Line buffers --------------------------------------------------------//
 
@@ -121,17 +117,13 @@ reg   [9:0] lbs_addr, lbd_addr;
 reg   [7:0] lbs_data, lbd_data;
 reg         lbs_wr, lbd_wr;
 
-dpram_dc #(.widthad_a(10)) spr_line
-(
-    .clock_a(clk), .address_a(lb_disp_addr), .data_a(8'h00), .wren_a(lb_disp_clr), .q_a(lbs_q),
-    .clock_b(clk), .address_b(lbs_addr), .data_b(lbs_data), .wren_b(lbs_wr), .q_b()
-);
+assign lbs_i.a_addr = {5'd0, lb_disp_addr}; assign lbs_i.a_d = 8'h00; assign lbs_i.a_we = lb_disp_clr;
+assign lbs_i.b_addr = {5'd0, lbs_addr}; assign lbs_i.b_d = lbs_data; assign lbs_i.b_we = lbs_wr;
+assign lbs_q = lbs_o.a_q;
 
-dpram_dc #(.widthad_a(10)) dot_line
-(
-    .clock_a(clk), .address_a(lb_disp_addr), .data_a(8'h00), .wren_a(lb_disp_clr), .q_a(lbd_q),
-    .clock_b(clk), .address_b(lbd_addr), .data_b(lbd_data), .wren_b(lbd_wr), .q_b()
-);
+assign lbd_i.a_addr = {5'd0, lb_disp_addr}; assign lbd_i.a_d = 8'h00; assign lbd_i.a_we = lb_disp_clr;
+assign lbd_i.b_addr = {5'd0, lbd_addr}; assign lbd_i.b_d = lbd_data; assign lbd_i.b_we = lbd_wr;
+assign lbd_q = lbd_o.a_q;
 
 //------------------------------------------------------- Starfield -----------------------------------------------------------//
 
@@ -139,28 +131,23 @@ dpram_dc #(.widthad_a(10)) dot_line
 wire       star_hit;
 wire [5:0] star_col;
 
-namco_05xx stars
-(
-    .clk(clk),
-    .ce6(ce6),
-    .pause(pause),
-    .line_step(line_step),
-    .vcnt(vcnt),
-    .win(v_vis && px0 < 9'd256),
-    .speed_x(star_ctl[2:0]),
-    .speed_y(star_ctl[5:3]),
-    .set_a({1'b0, star_sets[0]}),
-    .set_b({1'b1, star_sets[1]}),
-    .enable(star_en),
-    .star(star_hit),
-    .color(star_col)
-);
+assign star_i.ce6 = ce6;
+assign star_i.line_step = line_step;
+assign star_i.vcnt = vcnt;
+assign star_i.win = v_vis && px0 < 9'd256;
+assign star_i.speed_x = star_ctl[2:0];
+assign star_i.speed_y = star_ctl[5:3];
+assign star_i.set_a = {1'b0, star_sets[0]};
+assign star_i.set_b = {1'b1, star_sets[1]};
+assign star_i.enable = star_en;
+assign star_hit = star_o.star;
+assign star_col = star_o.color;
 
 //------------------------------------------------------- Tiles + pixel path --------------------------------------------------//
 
 // playfield at c < 224: source = (c + scroll_x, y + scroll_y), 32 x 32 scan rows, codes at 400, attributes at C00.
 // radar at c >= 224: column (c / 8) & 7, row y / 8, codes at 000, attributes at 800. Attribute: colour 5-0,
-// bit 6 clear = flip x (MAME TILE_FLIPYX(attr >> 6) ^ TILE_FLIPX), bit 7 = flip y.
+// bit 6 clear = flip x, bit 7 = flip y.
 wire       is_pf  = tx < 9'd224;
 wire [7:0] sx     = tx[7:0] + scroll_x;
 wire [7:0] sy     = ty + scroll_y;
@@ -273,7 +260,7 @@ end
 
 //------------------------------------------------------- Sprites + dots ------------------------------------------------------//
 
-// During each line the engine prepares the next one (picture coordinates). Sprites (MAME draw_sprites): 6 entries,
+// During each line the engine prepares the next one (picture coordinates). Sprites: 6 entries,
 // x = a[2n+1] - 2, y = 240 - b[2n], code = a[2n] >> 2, flips a[2n] bits 0 / 1, colour b[2n+1] & 3F, clipped to c < 224.
 // Dots (draw_bullets): entries 4-15, x = dot_x + 256 * ~attr0 - 2, y = 251 - dot_y, shape (attr 3-1) ^ 7, drawn
 // flipped both ways, pens 0-3 opaque (palette 31 - pen). Sprites first, then dots.

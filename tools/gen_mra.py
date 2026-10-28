@@ -32,7 +32,7 @@ ART_SCREEN_H = 512          # vertical games: canvas pixels down the (portrait) 
 ART_MAX_W = 1400            # widest canvas line: the HDMI scaler fetches one per output line; >~1450 shimmers at 1080p (HW 2026-10-24)
 ART_BLOB_MAX = (1 << 26)    # PNG bytes + markers after the table: artwork.sv boff is 26 bits (64 MB DDR window)
 ART_ROT = {"ROT0": 0, "ROT270": 1, "ROT90": 2}   # layout table byte 10
-ART_NATIVE = (288, 224)     # every board's displayed raster (MAME visarea, rtl/galaga_board.sv blanking)
+ART_NATIVE = (288, 224)     # every board's displayed raster (MAME visarea, rtl/boards/galaga/galaga_video.sv blanking)
 ART_NATIVE_BY = {}
 # hiscore.v header after START_WAIT: CHECK_WAIT 00FF, CHECK_HOLD 2, WRITE_HOLD 2, WRITE_REPEATCOUNT 1,
 # WRITE_REPEATWAIT 1111, PAUSEPAD 0, CHANGEMASK 0

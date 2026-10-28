@@ -126,7 +126,7 @@ wire signed [31:0] out_next = (BOARD != 1) ? out_acc + wprod[43:12] : out_acc + 
 wire       bosco_mix        = (BOARD == 2) || (BOARD == 0 && bosco);
 wire signed [31:0] mix_v    = bosco_mix ? out_next + ext_volts : out_next;
 
-// BOARD 0 output: 0.1 uF coupling into 100k (high-pass, MAME cAmp), then 40800 / 32768 * 0.90 per volt
+// BOARD 0 output: 0.1 uF coupling into 100k (high-pass), then 40800 / 32768 * 0.90 per volt
 reg  signed [31:0] hp_cap = 32'sd0;
 wire signed [31:0] hp_in       = mix_v - hp_cap;
 wire signed [48:0] hp_d        = hp_in * 17'sd136;               // 1 - exp(-1 / (10 ms * 48 kHz)), Q16
@@ -164,7 +164,7 @@ always @(posedge clk) begin
         x2[ch] <= x1[ch];
         x1[ch] <= x0[ch];
         y2[ch] <= y1[ch];
-        y1[ch] <= y_cl;                                     // clipped, as MAME
+        y1[ch] <= y_cl;                                     // clipped
         acc    <= 64'sd0;
         t      <= 3'd0;
         if (ch == 2'd2) begin

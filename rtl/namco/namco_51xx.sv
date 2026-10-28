@@ -2,7 +2,7 @@
 //
 //  Namco 51xx I/O (coins, switches): MB8843 MCU running its 0x400 mask ROM
 //
-//  Per MAME namco51.cpp. The mailbox (MAME m_portO) is one byte written by
+//  Per MAME namco51.cpp. The mailbox is one byte written by
 //  both sides: a CPU write through the 06xx, or the MCU's own O-port output.
 //  K3 = R/W direction from the 06xx, K2-K0 = mailbox low bits.
 //  R0-R3 = the four input nibbles; TC = vblank.
@@ -23,7 +23,7 @@ module namco_51xx
     input  wire        wr_en,      // write strobe (06xx write mode, chip selected)
     input  wire  [7:0] wr_data,
 
-    // R-port inputs (namco51.cpp input_callback<0..3>)
+    // R-port inputs 0-3
     input  wire  [7:0] in_a,       // input<0> = in_a[3:0], input<1> = in_a[7:4]
     input  wire  [7:0] in_b,       // input<2> = in_b[3:0], input<3> = in_b[7:4]
 
@@ -35,7 +35,7 @@ module namco_51xx
     input  wire  [7:0] rom_data_in,
 
     input  wire        vblank,     // -> TC, counted on its falling edge
-    // the shared MB88 (rtl/galaga_board.sv pool)
+    // the shared MB88 (rtl/galaga_dispatcher.sv pool)
     output chip_pool_pkg::mb88_i_t mb88_i,
     input  chip_pool_pkg::mb88_o_t mb88_o
 );
@@ -69,7 +69,7 @@ module namco_51xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    // MB8843: the shared MB88 in rtl/galaga_board.sv
+    // MB8843: the shared MB88 in rtl/galaga_dispatcher.sv
     assign mb88_i.ena     = ena;
     assign mb88_i.reset_n = reset_n;
     assign mb88_i.k       = k_in;
