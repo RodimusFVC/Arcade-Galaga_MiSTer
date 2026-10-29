@@ -43,8 +43,8 @@ wire        ioctl_upload_req;
 wire  [7:0] ioctl_din;
 wire        ioctl_wr;
 wire  [7:0] ioctl_index;
-wire [26:0] ioctl_addr27;                     // hps_io's full address: the artwork download can pass 32 MB
-wire [24:0] ioctl_addr = ioctl_addr27[24:0];  // every other ioctl user
+wire [26:0] ioctl_addr27;
+wire [24:0] ioctl_addr = ioctl_addr27[24:0];
 wire  [7:0] ioctl_dout;
 wire [15:0] joystick_0, joystick_1;
 wire [21:0] gamma_bus;
@@ -70,7 +70,7 @@ assign HDMI_BOB_DEINT = 0;
 wire signed [15:0] audio;
 assign AUDIO_L = pause_cpu ? 16'd0 : audio;
 assign AUDIO_R = pause_cpu ? 16'd0 : audio;
-assign AUDIO_S = 1;   // signed
+assign AUDIO_S = 1;
 assign AUDIO_MIX = 0;
 
 assign LED_DISK  = 0;
@@ -78,13 +78,6 @@ assign LED_POWER = 0;
 assign LED_USER  = ioctl_download;
 assign BUTTONS = 0;
 
-///////////////////////////////////////////////////
-
-// MRA index 1:
-//   byte 0      board variant (see rtl/galaga_dispatcher.sv)
-//   byte 1      flags: [0] 4-way joystick, [2] coins are 2-frame pulses, [4] vertical, [7] vertical is ROT90
-//   bytes 16-47 input map, one byte per port bit (IN0, IN1, DSWA, DSWB; bit 0 first): control id, 0 = none
-// DIP switch bytes 0-3 hold the idle level of every bit of IN0, IN1, DSWA, DSWB; a pressed control inverts its bit
 reg [7:0] game_var   = 8'd0;
 reg [7:0] game_flags = 8'h90;
 reg [5:0] in_map[32];
@@ -103,13 +96,12 @@ wire vert_view = game_vert & ~status[34];
 
 wire [1:0] ar = status[33:32];
 
-wire        art_fb;                // artwork framebuffer on HDMI: square canvas pixels
+wire        art_fb;
 wire        art_wait, art_avail;
 wire [11:0] art_cw, art_ch;
 assign VIDEO_ARX = (!ar) ? (art_fb ? art_cw : vert_view ? 12'd3 : 12'd4) : (ar - 1'd1);
 assign VIDEO_ARY = (!ar) ? (art_fb ? art_ch : vert_view ? 12'd4 : 12'd3) : 12'd0;
 
-// Status bits start at 32 so the old Galaga core's saved settings (bits 2-31) can't leak in
 `include "build_id.v"
 localparam CONF_STR = {
 	"GALAGA;;",
@@ -177,9 +169,6 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.ps2_key(ps2_key)
 );
 
-
-////////////////////   CLOCKS   ///////////////////
-
 pll pll
 (
 	.refclk(CLK_50M),
@@ -208,26 +197,18 @@ pll_cfg pll_cfg
 	.reconfig_from_pll(reconfig_from_pll)
 );
 
-// Hold the board in reset until the PLL is locked and the ROM download has finished. Main_MiSTer releases the sys
-// reset before it sets status[0] for the MRA load, so the board also waits until status[0] has been seen once.
 reg hps_ready = 1'b0;
 always @(posedge CLK_49M) if (status[0]) hps_ready <= 1'b1;
 wire reset = RESET | status[0] | buttons[1] | ioctl_download | ~locked | ~hps_ready;
 
-///////////////////         Keyboard           //////////////////
-
-// kb: [0] up [1] down [2] left [3] right [4] Btn 1 (Ctrl) [5] Btn 2 (Alt) [6] Start 1 [7] Start 2 [8] Coin 1 [9] Coin 2 [10] Service [11] Tilt [12] Pause
 wire [12:0] kb;
 /* verilator lint_off PINCONNECTEMPTY */
 ctl_keyboard keyboard(.clk(CLK_49M), .ps2_key(ps2_key), .pause(pause_cpu), .kb(kb), .kbx());
 /* verilator lint_on PINCONNECTEMPTY */
 
-//////////////////  Arcade Buttons/Interfaces   ///////////////////////////
-
-// Joystick bits: 0 R, 1 L, 2 D, 3 U, 4-7 Btn 1-4, 8 Coin, 9 Start 1P, 10 Start 2P, 11 Pause, 12-14 Btn 5-6 + Rack Test
 wire [3:0] dir1_raw = {joystick_0[3] | kb[0], joystick_0[2] | kb[1], joystick_0[1] | kb[2], joystick_0[0] | kb[3]};
 wire [3:0] dir2_raw = joystick_1[3:0];
-wire [3:0] dir1, dir2;   // {U, D, L, R}
+wire [3:0] dir1, dir2;
 
 ctl_joy4way joy4way_1(.clk(CLK_49M), .en(game_flags[0]), .in(dir1_raw), .out(dir1));
 ctl_joy4way joy4way_2(.clk(CLK_49M), .en(game_flags[0]), .in(dir2_raw), .out(dir2));
@@ -235,13 +216,11 @@ ctl_joy4way joy4way_2(.clk(CLK_49M), .en(game_flags[0]), .in(dir2_raw), .out(dir
 wire m_pause = joystick_0[11] | kb[12];
 
 wire coin1, coin2;
-// game_flags[2]: a coin press is held for exactly two frames from the next vblank (frame count holds while paused)
 ctl_coin_impulse #(.PAUSE_MODE(1)) coin_imp1(.clk(CLK_49M), .pause(pause_cpu), .vblank(vblank), .en(game_flags[2]),
                            .coin_raw(joystick_0[8] | kb[8]), .coin(coin1));
 ctl_coin_impulse #(.PAUSE_MODE(1)) coin_imp2(.clk(CLK_49M), .pause(pause_cpu), .vblank(vblank), .en(game_flags[2]),
                            .coin_raw(joystick_1[8] | kb[9]), .coin(coin2));
 
-// Rack Test cheat: held (a DIP with a key), or flipped on each press (toggle)
 wire rack_btn = joystick_0[14] | joystick_1[14];
 wire rack_tog;
 ctl_toggle rack_toggle(.clk(CLK_49M), .clear(ioctl_download), .btn(rack_btn), .pause(pause_cpu), .q(rack_tog));
@@ -252,20 +231,17 @@ ctl_ids ids(.joy0(joystick_0), .joy1(joystick_1), .kb(kb), .dir1(dir1), .dir2(di
 wire [63:0] ctl =
 {
 	26'd0,
-	rack_tog,                                       // 37 rack test (toggle)
-	rack_btn,                                       // 36 rack test (held)
-	ctl36                                           // 35-0 shared ids
+	rack_tog,
+	rack_btn,
+	ctl36
 };
 
-// DIP switches arrive from the OSD via ioctl index 254
 reg [7:0] dip_sw[8] = '{8'hFF,8'hFF,8'hFF,8'hFF,8'h00,8'h00,8'h00,8'h00};
 always @(posedge CLK_49M) begin
 	if (ioctl_wr && (ioctl_index == 8'd254) && !ioctl_addr[24:3])
 		dip_sw[ioctl_addr[2:0]] <= ioctl_dout;
 end
 
-// Controls idle high (all active-low) whatever the DIP bytes hold; only DIP switch bits come from them.
-// IN0/IN1: all controls except IN1 bit 7 (Service Mode). DSWA/DSWB: bits mapped to a player button (Xevious bombs).
 function automatic is_btn(input [5:0] id);
 	is_btn = (id >= 6'd5 && id <= 6'd8) || (id >= 6'd13 && id <= 6'd16) || (id >= 6'd32 && id <= 6'd35);
 endfunction
@@ -296,7 +272,6 @@ ctl_port_map #(.NP(4), .IDW(6)) port_map
 	.ctl(ctl), .ovr_mask(32'd0), .ovr_val(32'd0), .ports(in_ports)
 );
 
-// PAUSE SYSTEM
 wire [23:0] rgb_out;
 pause #(8,8,8,49) pause
 (
@@ -307,16 +282,12 @@ pause #(8,8,8,49) pause
 	.options(~status[41:40])
 );
 
-///////////////                 Video                  ////////////////
-
 wire hs, vs;
 wire [7:0] r, g, b;
 wire ce_pix;
 wire        bd_hs, bd_vs, bd_hbl, bd_vbl;
 wire  [7:0] bd_r, bd_g, bd_b;
 
-// MAME artwork (ioctl index 5, OSD Artwork page): native composite on the core video (one pixel late),
-// full view through the DDR3 framebuffer on HDMI. 7-bit colour codes: Galaga's starfield puts ~70 colours on screen.
 wire        art_run, art_ddr;
 wire [31:0] art_fb_base;
 wire  [7:0] art_burstcnt, art_be;
@@ -340,10 +311,9 @@ artwork #(.IDX(8'd5), .CODE_BITS(7)) artwork
 	.DDRAM_DOUT(DDRAM_DOUT), .DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(art_rd),
 	.DDRAM_DIN(art_din), .DDRAM_BE(art_be), .DDRAM_WE(art_we)
 );
-// Orientation Horz (rotated monitor): the artwork turns its own view, so it keeps the framebuffer
 assign art_fb = art_run & ~direct_video;
 
-wire rotate_ccw = ~game_flags[7];  // ROT270 sets rotate CCW, ROT90 sets CW
+wire rotate_ccw = ~game_flags[7];
 wire no_rotate  = ~game_vert | status[34] | direct_video;
 wire flip       = status[35];
 wire        sr_fb_en, sr_clk, sr_rd, sr_we;
@@ -363,7 +333,6 @@ screen_rotate screen_rotate
 	.DDRAM_BE(sr_be), .DDRAM_WE(sr_we), .DDRAM_RD(sr_rd)
 );
 
-// the artwork takes the framebuffer while it draws, and DDR3 while it loads or draws
 assign FB_EN     = art_fb | sr_fb_en;
 assign FB_FORMAT = art_fb ? 5'b00110  : sr_fb_format;
 assign FB_WIDTH  = art_fb ? art_cw    : sr_fb_w;
@@ -392,8 +361,6 @@ arcade_video #(288,24) arcade_video
 
 	.fx(status[39:37])
 );
-
-///////////////                 Board                  ////////////////
 
 galaga_dispatcher board
 (
@@ -437,7 +404,6 @@ galaga_dispatcher board
 	.hs_write(hs_write_enable)
 );
 
-// Hiscore: config = MRA index 3, dump = index 4; the board's bus is handed to it while the CPUs are paused
 wire [15:0] hs_address;
 wire  [7:0] hs_data_in;
 wire  [7:0] hs_data_out;
@@ -469,4 +435,3 @@ hiscore #(
 );
 
 endmodule
-

@@ -1,47 +1,32 @@
-//============================================================================
-//
-//  Namco 51xx I/O (coins, switches): MB8843 MCU running its 0x400 mask ROM
-//
-//  Per MAME namco51.cpp. The mailbox is one byte written by
-//  both sides: a CPU write through the 06xx, or the MCU's own O-port output.
-//  K3 = R/W direction from the 06xx, K2-K0 = mailbox low bits.
-//  R0-R3 = the four input nibbles; TC = vblank.
-//
-//============================================================================
+//  Based on MAME namco51.cpp (Mike Harris, Aaron Giles, BSD-3-Clause)
 `default_nettype none
 
 module namco_51xx
 (
     input  wire        clk,
-    input  wire        ena,        // MCU clock enable, 1.536 MHz
+    input  wire        ena,
     input  wire        reset_n,
 
-    // 06xx side
-    input  wire        chip_sel,   // select pulse -> MCU IRQ
-    input  wire        rw_in,      // R/W direction (06xx control bit 4)
-    output wire  [7:0] data_out,   // mailbox -> 06xx read data
-    input  wire        wr_en,      // write strobe (06xx write mode, chip selected)
+    input  wire        chip_sel,
+    input  wire        rw_in,
+    output wire  [7:0] data_out,
+    input  wire        wr_en,
     input  wire  [7:0] wr_data,
 
-    // R-port inputs 0-3
     input  wire  [7:0] in_a,       // input<0> = in_a[3:0], input<1> = in_a[7:4]
     input  wire  [7:0] in_b,       // input<2> = in_b[3:0], input<3> = in_b[7:4]
 
-    output wire  [3:0] p_port_out, // coin counters / lamps
+    output wire  [3:0] p_port_out,
 
-    // 0x400 mask ROM load (write strobe already decoded by the board)
     input  wire        rom_wr,
     input  wire  [9:0] rom_addr_in,
     input  wire  [7:0] rom_data_in,
 
-    input  wire        vblank,     // -> TC, counted on its falling edge
-    // the shared MB88 (rtl/galaga_dispatcher.sv pool)
+    input  wire        vblank,
     output chip_pool_pkg::mb88_i_t mb88_i,
     input  chip_pool_pkg::mb88_o_t mb88_o
 );
 
-    // Shared mailbox: a CPU write wins; otherwise each MCU outO instruction latches its O port once
-    // (o_wr is held for a whole MCU cycle, so gate it with ena to latch exactly one fabric clock).
     wire [7:0] o_out_w;
     wire       o_wr_w;
     reg  [7:0] mbox;
@@ -69,13 +54,12 @@ module namco_51xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    // MB8843: the shared MB88 in rtl/galaga_dispatcher.sv
     assign mb88_i.ena     = ena;
     assign mb88_i.reset_n = reset_n;
     assign mb88_i.k       = k_in;
     assign mb88_i.r_in    = {r3_in, r2_in, r1_in, r0_in};
     assign mb88_i.irq_n   = ~chip_sel;
-    assign mb88_i.tc_n    = ~vblank;          // MAME: TC asserted while not in vblank
+    assign mb88_i.tc_n    = ~vblank;
     assign mb88_i.si_n    = 1'b1;
     assign mb88_i.rom_d   = rom_data;
     assign rom_addr       = mb88_o.rom_a;
@@ -83,7 +67,6 @@ module namco_51xx
     assign o_wr_w         = mb88_o.o_wr;
     assign p_port_out     = mb88_o.p;
 
-    // 1K mask ROM (rom_addr is 11 bits wide for the MB8841 family)
     dpram_dc #(.widthad_a(10)) rom_51xx
     (
         .clock_a  (clk), .address_a(rom_addr[9:0]), .data_a(8'h00), .wren_a(1'b0), .q_a(rom_data),

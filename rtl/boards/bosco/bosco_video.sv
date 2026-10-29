@@ -1,63 +1,48 @@
-//============================================================================
-//
-//  Bosconian video: scrolling playfield, radar panel, 6 sprites, radar dots,
-//  05xx starfield
-//
-//  Per MAME bosco.cpp (Nicola Salmoria). The Bosconian screen is y 16-239,
-//  i.e. y = V counter; x 0-287 as the Galaga boards. Composition at picture
-//  position c: dots on top; c >= 224 the radar tiles; c < 224 the playfield
-//  (lookup F transparent) over the sprites over the stars. The hardware skips
-//  H 221-223, so the screen shows c = x for x < 221, c = x + 3 for 221-284
-//  and black from 285.
-//
-//============================================================================
+//  Based on MAME bosco.cpp (Nicola Salmoria, BSD-3-Clause)
 
 module bosco_video
 (
-    input               clk,            // 49.152 MHz
-    input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
+    input               clk,
+    input         [2:0] sub,
     input               ce6,
     input               pause,
     input         [8:0] hcnt,
     input         [8:0] vcnt,
     input               line_step,
 
-    input         [7:0] scroll_x,       // 9810
-    input         [7:0] scroll_y,       // 9820
-    input         [5:0] star_ctl,       // 9830: X speed, Y speed
-    input               star_en,        // after the first STARCLR write
-    input         [1:0] star_sets,      // video latch Q4, Q5
-    input               flip,           // video latch Q0 inverted: game flip
+    input         [7:0] scroll_x,
+    input         [7:0] scroll_y,
+    input         [5:0] star_ctl,
+    input               star_en,
+    input         [1:0] star_sets,
+    input               flip,
     input               crt_flip,
 
-    // video RAM 8000-8FFF: 000 radar codes, 400 playfield codes, 800 radar attributes, C00 playfield attributes
     output reg   [11:0] vram_addr,
     input         [7:0] vram_q,
 
-    // sprite and dot registers (copies of video RAM 3D4-3DF / BD4-BDF and 3F0-3FF / BF0-BFF) and 9800-980F
-    input        [95:0] spr_a,          // 12 bytes at 3D4: {code / flips} x even, {x} x odd
-    input        [95:0] spr_b,          // 12 bytes at BD4: {y} x even, {colour} x odd
-    input       [127:0] dot_x,          // 16 bytes at 3F0
-    input       [127:0] dot_y,          // 16 bytes at BF0
-    input       [127:0] dot_attr,       // 16 bytes at 9800
+    input        [95:0] spr_a,
+    input        [95:0] spr_b,
+    input       [127:0] dot_x,
+    input       [127:0] dot_y,
+    input       [127:0] dot_attr,
 
-    // shared ROM blocks (rtl/galaga_dispatcher.sv), read ports
-    output       [11:0] chr_rom_a,      // gfx1 characters
+    output       [11:0] chr_rom_a,
     input         [7:0] chr_rom_d,
-    output       [11:0] spr_rom_a,      // gfx2 sprites
+    output       [11:0] spr_rom_a,
     input         [7:0] spr_rom_d,
-    output        [7:0] dot_rom_a,      // gfx3 radar dots
+    output        [7:0] dot_rom_a,
     input         [7:0] dot_rom_d,
-    output        [9:0] pix_prom_a,     // proms 000-3FF, pixel path copy
+    output        [9:0] pix_prom_a,
     input         [7:0] pix_prom_d,
-    output        [9:0] spr_prom_a,     // proms 000-3FF, sprite engine copy
+    output        [9:0] spr_prom_a,
     input         [7:0] spr_prom_d,
 
-    output ram_pool_pkg::pram_i_t lbs_i,      // sprite line buffer (RAM pool block)
+    output ram_pool_pkg::pram_i_t lbs_i,
     input  ram_pool_pkg::pram_o_t lbs_o,
-    output ram_pool_pkg::pram_i_t lbd_i,      // radar dot line buffer (RAM pool block)
+    output ram_pool_pkg::pram_i_t lbd_i,
     input  ram_pool_pkg::pram_o_t lbd_o,
-    output chip_pool_pkg::namco_05xx_i_t star_i,  // 05xx starfield (chip pool)
+    output chip_pool_pkg::namco_05xx_i_t star_i,
     input  chip_pool_pkg::namco_05xx_o_t star_o,
 
     output reg    [7:0] red = 8'd0,
@@ -67,18 +52,13 @@ module bosco_video
 
 wire [8:0] px0   = (hcnt >= 9'h0F0) ? hcnt - 9'h0F0 : hcnt + 9'd144;
 wire [8:0] px    = crt_flip ? 9'd287 - px0 : px0;
-wire [7:0] my    = crt_flip ? 8'd255 - vcnt[7:0] : vcnt[7:0];    // screen y (16-239)
+wire [7:0] my    = crt_flip ? 8'd255 - vcnt[7:0] : vcnt[7:0];
 wire       h_vis = (hcnt >= 9'h0F0) || (hcnt < 9'h090);
 wire       v_vis = (vcnt >= 9'd16) && (vcnt < 9'd240);
-// composed picture position: upright, H 221-223 are skipped (radar moves 3 left); flipped, the radar is at the left
-// and moves 3 right
 wire [8:0] cx    = flip ? ((px < 9'd67) ? px - 9'd3 : px) : ((px < 9'd221) ? px : px + 9'd3);
 wire       blank = flip ? px < 9'd3 : px >= 9'd285;
-// tile layers flip with the screen: fetch at the mirrored position
 wire [8:0] tx    = flip ? 9'd287 - cx : cx;
 wire [7:0] ty    = flip ? 8'd255 - my : my;
-
-//------------------------------------------------------- ROMs / PROMs --------------------------------------------------------//
 
 reg  [11:0] chr_addr;
 wire  [7:0] chr_q;
@@ -95,7 +75,6 @@ wire  [7:0] dot_rom_q;
 assign dot_rom_a = dot_rom_addr;
 assign dot_rom_q = dot_rom_d;
 
-// "proms": 000 palette, 020 lookup (characters | 10, sprites as is)
 reg   [9:0] pix_prom_addr;
 wire  [7:0] pix_prom_q;
 assign pix_prom_a = pix_prom_addr;
@@ -106,10 +85,6 @@ wire  [7:0] spr_prom_q;
 assign spr_prom_a = spr_prom_addr;
 assign spr_prom_q = spr_prom_d;
 
-//------------------------------------------------------- Line buffers --------------------------------------------------------//
-
-// two lines of 512 each: sprites {opaque, 3'b0, pen (4)}, dots {opaque, 5'b0, pen (2)}; the pixel path reads and
-// clears one line while the engine fills the other
 reg   [9:0] lb_disp_addr;
 reg         lb_disp_clr;
 wire  [7:0] lbs_q, lbd_q;
@@ -125,9 +100,6 @@ assign lbd_i.a_addr = {5'd0, lb_disp_addr}; assign lbd_i.a_d = 8'h00; assign lbd
 assign lbd_i.b_addr = {5'd0, lbd_addr}; assign lbd_i.b_d = lbd_data; assign lbd_i.b_we = lbd_wr;
 assign lbd_q = lbd_o.a_q;
 
-//------------------------------------------------------- Starfield -----------------------------------------------------------//
-
-// window x 0-255 of the visible lines, shown at picture x < 224 (i.e. screen x < 221)
 wire       star_hit;
 wire [5:0] star_col;
 
@@ -143,11 +115,6 @@ assign star_i.enable = star_en;
 assign star_hit = star_o.star;
 assign star_col = star_o.color;
 
-//------------------------------------------------------- Tiles + pixel path --------------------------------------------------//
-
-// playfield at c < 224: source = (c + scroll_x, y + scroll_y), 32 x 32 scan rows, codes at 400, attributes at C00.
-// radar at c >= 224: column (c / 8) & 7, row y / 8, codes at 000, attributes at 800. Attribute: colour 5-0,
-// bit 6 clear = flip x, bit 7 = flip y.
 wire       is_pf  = tx < 9'd224;
 wire [7:0] sx     = tx[7:0] + scroll_x;
 wire [7:0] sy     = ty + scroll_y;
@@ -188,7 +155,6 @@ always @(posedge clk) begin
             lb_disp_clr <= vis_a;
         end
         3'd3: begin
-            // charlayout_2bpp: x 0-3 in bytes 8-15, x 4-7 in bytes 0-7
             t_color  <= vram_q[5:0];
             chr_addr <= {t_code, ~(t_x[2] ^ ~vram_q[6]), t_y ^ {3{vram_q[7]}}};
             t_x      <= t_x ^ {3{~vram_q[6]}};
@@ -216,9 +182,9 @@ always @(posedge clk) begin
         3'd6: pix_prom_addr <= 10'h020 + {2'b00, t_color, t_pix};
         3'd0: begin
             pen_none <= 1'b0;
-            if (d_entry_b[7])                         pen <= 5'd31 - {3'd0, d_entry_b[1:0]};   // dot
-            else if (pix_prom_q[3:0] != 4'hF)         pen <= {1'b1, pix_prom_q[3:0]};          // playfield / radar
-            else if (pf_b && s_entry_b[7])            pen <= {1'b0, s_entry_b[3:0]};           // sprite
+            if (d_entry_b[7])                         pen <= 5'd31 - {3'd0, d_entry_b[1:0]};
+            else if (pix_prom_q[3:0] != 4'hF)         pen <= {1'b1, pix_prom_q[3:0]};
+            else if (pf_b && s_entry_b[7])            pen <= {1'b0, s_entry_b[3:0]};
             else begin                                pen <= 5'h1F; pen_none <= 1'b1; end
         end
         3'd1: pix_prom_addr <= {5'd0, pen};
@@ -258,12 +224,6 @@ always @(posedge clk) begin
     end
 end
 
-//------------------------------------------------------- Sprites + dots ------------------------------------------------------//
-
-// During each line the engine prepares the next one (picture coordinates). Sprites: 6 entries,
-// x = a[2n+1] - 2, y = 240 - b[2n], code = a[2n] >> 2, flips a[2n] bits 0 / 1, colour b[2n+1] & 3F, clipped to c < 224.
-// Dots (draw_bullets): entries 4-15, x = dot_x + 256 * ~attr0 - 2, y = 251 - dot_y, shape (attr 3-1) ^ 7, drawn
-// flipped both ways, pens 0-3 opaque (palette 31 - pen). Sprites first, then dots.
 localparam E_IDLE = 3'd0, E_SPR = 3'd1, E_SDRAW = 3'd2, E_DOT = 3'd3, E_DDRAW = 3'd4;
 
 reg  [2:0] est = E_IDLE;
@@ -290,16 +250,13 @@ wire [7:0] da   = dot_attr[e_n*8 +: 8];
 wire [7:0] d_y  = 8'd251 - dy8 + (flip ? 8'd2 : 8'd0);
 wire [7:0] d_dy = tgt_y - d_y;
 
-// sprite pipeline: ROM address -> data (2 clocks) -> lookup address -> lookup (2 clocks) -> line buffer
 reg  [3:0] p_v;
 reg  [9:0] p_x[4];
 reg  [1:0] p_c[2];
-// dot pipeline: ROM address -> data (2 clocks) -> line buffer
 reg  [1:0] q_v;
 reg  [9:0] q_x[2];
 
 wire [3:0] scol = d_fx ? ~d_px : d_px;
-// spritelayout_bosco: x 0-3 / 4-7 / 8-11 / 12-15 in bytes 8 / 16 / 24 / 0, rows 8-15 at +32
 wire [1:0] sgrp = scol[3:2] + 2'd1;
 
 always @(posedge clk) begin
@@ -318,7 +275,6 @@ always @(posedge clk) begin
         lbs_wr   <= 1'b1;
     end
 
-    // dots: pen = bits 2-0 of the shape byte (planes at bit offsets 5, 6, 7); pens 4-7 transparent
     if (q_v[1] && !dot_rom_q[2] && q_x[1] < 10'd288) begin
         lbd_addr <= {tgt_buf, q_x[1][8:0]};
         lbd_data <= {1'b1, 5'b00000, dot_rom_q[1:0]};
@@ -329,7 +285,7 @@ always @(posedge clk) begin
         tgt_y   <= crt_flip ? 8'd255 - (vcnt[7:0] + 8'd1) : vcnt[7:0] + 8'd1;
         tgt_buf <= ~vcnt[0];
         e_n     <= 4'd0;
-        est     <= (vcnt >= 9'd15 && vcnt < 9'd239) ? E_SPR : E_IDLE;    // visible lines only: blank lines never clear their half
+        est     <= (vcnt >= 9'd15 && vcnt < 9'd239) ? E_SPR : E_IDLE;
     end
     else case (est)
         E_SPR: begin
@@ -356,7 +312,6 @@ always @(posedge clk) begin
             end
         end
         E_DOT: begin
-            // dotlayout: 16 bytes per shape, byte = row * 4 + column; drawn flipped both ways
             d_x    <= {1'b0, ~da[0], dx8} - (flip ? 10'd3 : 10'd2);
             d_row  <= {2'b00, d_dy[1:0] ^ {2{~flip}}};
             d_code <= {3'b000, da[3:1] ^ 3'd7};

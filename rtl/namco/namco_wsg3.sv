@@ -1,18 +1,8 @@
-//============================================================================
-//
-//  Namco WSG, 3 voices (Pac-Man / Galaga register map)
-//
-//  Per MAME sound/namco.cpp: 32 four-bit registers,
-//  voice 0 at 05 (waveform) / 10-14 (frequency, 20 bits) / 15 (volume),
-//  voice 1 at 0A / 16-19 / 1A, voice 2 at 0F / 1B-1E / 1F. 96 kHz: each
-//  voice's accumulator adds its frequency and indexes a 32-sample waveform
-//  with bits 19-15.
-//
-//============================================================================
+//  Based on MAME namco.cpp (Nicola Salmoria,Aaron Giles, BSD-3-Clause)
 
 module namco_wsg3
 (
-    input                   clk,            // 49.152 MHz
+    input                   clk,
     input                   reset,
     input                   pause,
 
@@ -20,7 +10,7 @@ module namco_wsg3
     input             [3:0] reg_data,
     input                   reg_wr,
 
-    input             [7:0] wave_addr,      // waveform PROM load
+    input             [7:0] wave_addr,
     input             [7:0] wave_data,
     input                   wave_wr,
 
@@ -30,7 +20,6 @@ module namco_wsg3
 reg [3:0] regs[32];
 always @(posedge clk) if (reg_wr) regs[reg_addr] <= reg_data;
 
-// 96 kHz: 49.152 MHz / 512
 reg [8:0] div = 9'd0;
 always @(posedge clk) if (!pause) div <= div + 9'd1;
 
@@ -57,9 +46,6 @@ dpram_dc #(.widthad_a(8)) wave_rom
     .clock_b(clk), .address_b(wave_addr), .data_b(wave_data), .wren_b(wave_wr), .q_b()
 );
 
-// per 96 kHz sample: for each voice read its waveform at the current position, then advance the accumulator
-// (only while its volume is non-zero, as MAME).
-// Sample = sum of (wave - 8) * volume; MAME scales by 1 / (128 * 3) and routes at 0.90 * 10 / 16 -> x 48 here.
 reg  signed [10:0] mix;
 reg   [1:0] v;
 reg   [2:0] step;
@@ -81,7 +67,7 @@ always @(posedge clk) begin
         3'd2: step <= 3'd3;
         3'd3: begin
             mix    <= mix + term;
-            if (vol[v] != 4'd0) acc[v] <= acc[v] + freq[v];      // silent voices hold their phase
+            if (vol[v] != 4'd0) acc[v] <= acc[v] + freq[v];
             if (v == 2'd2) step <= 3'd4;
             else begin v <= v + 2'd1; step <= 3'd1; end
         end

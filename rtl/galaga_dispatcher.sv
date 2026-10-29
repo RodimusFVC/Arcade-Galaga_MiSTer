@@ -1,32 +1,20 @@
-//============================================================================
-//
-//  Namco Galaga-family dispatcher: ROM load map, shared CPU / custom chip / sound chip / ROM / RAM pools, and the
-//  board (rtl/boards/galaga/galaga_cpu.sv: the CPU board, carrying the Galaga / Dig Dug, Xevious and Bosconian
-//  video boards). Games: Galaga, Dig Dug, Xevious, Bosconian.
-//
-//  Memory maps, interrupt and custom-chip wiring per MAME galaga.cpp
-//  (Nicola Salmoria); video counters after Dar's (darfpga) Galaga core.
-//
-//============================================================================
+//  Based on MAME galaga.cpp (Nicola Salmoria, BSD-3-Clause)
 
 module galaga_dispatcher
 (
-    input               clk,            // 49.152 MHz
+    input               clk,
     input               reset,
     input               pause,
     input               crt_flip,
-    input  signed [3:0] h_adj,          // CRT position: HSYNC moved 2 pixels per step
-    input  signed [3:0] v_adj,          //               VSYNC moved 1 line per step
-    input         [7:0] variant,        // 0 Galaga, 1 Galaga bootleg (no 54xx: Gallag, Nebulous Bee), 2 Gatsbee,
-                                        // 3 Dig Dug (also Zig Zag), 5 Xevious, 6 Xevious with bootleg ROM bit order (Xevios, Battles set 2),
-                                        // 7 Bosconian
+    input  signed [3:0] h_adj,
+    input  signed [3:0] v_adj,
+    input         [7:0] variant,
 
-    input         [7:0] in0,            // 51xx input<0>/<1>
-    input         [7:0] in1,            // 51xx input<2>/<3>
+    input         [7:0] in0,
+    input         [7:0] in1,
     input         [7:0] dswa,
     input         [7:0] dswb,
 
-    // Dig Dug EAROM contents, for saving (second port)
     input         [5:0] earom_addr,
     input         [7:0] earom_din,
     input               earom_we,
@@ -34,7 +22,7 @@ module galaga_dispatcher
 
     input        [24:0] ioctl_addr,
     input         [7:0] ioctl_dout,
-    input               ioctl_wr0,      // ioctl index 0
+    input               ioctl_wr0,
 
     output              ce_pix,
     output        [7:0] video_r,
@@ -47,7 +35,6 @@ module galaga_dispatcher
 
     output signed [15:0] audio,
 
-    // hiscore: drives the shared bus while the CPUs are paused
     input               hs_access,
     input        [15:0] hs_address,
     input         [7:0] hs_data_in,
@@ -57,9 +44,6 @@ module galaga_dispatcher
 
 wire v_dd = variant == 8'd3 || variant == 8'd4;
 
-//------------------------------------------------------- ROM load map --------------------------------------------------------//
-
-// Layout in rtl/ram_rom/rom_loader.sv. Every ROM block below is loaded by ioctl index 0 address only.
 wire main_cs, sub_cs, sub2_cs, gfx1_cs, sub3_cs, gfx2_cs, gfx3_cs, prom_cs, wave_cs, gfx4_cs, speech_cs;
 wire mcu50_cs, mcu51_cs, mcu52_cs, mcu53_cs, mcu54_cs;
 
@@ -77,15 +61,11 @@ wire        gfx2_wr  = ioctl_wr0 & gfx2_cs;
 wire        gfx3_wr  = ioctl_wr0 & gfx3_cs;
 wire        gfx4_wr  = ioctl_wr0 & gfx4_cs;
 wire        prom_wr  = ioctl_wr0 & prom_cs;
-wire [17:0] g3_off   = ioctl_addr[17:0] - 18'h18000;          // offset into gfx3
+wire [17:0] g3_off   = ioctl_addr[17:0] - 18'h18000;
 wire [17:0] g3_hi    = g3_off - 18'h05000;
 wire [11:0] prom_off = ioctl_addr[11:0];
 
 /////////////////////////////  Shared CPU / custom chip / sound chip pool  /////////////////////////////
-
-// One board family, one game at a time: every CPU, MCU, Namco custom and sound chip is instanced once here and the
-// board drives it (rtl/chip_pool_pkg.sv buses). Exception to the pool's core-reset rule: the Z80s, MB88s and customs
-// take the board's reset lines (watchdog, RAM clear, misc latch Q3, video latch Q7) on their buses.
 
 // z80_0: main CPU, z80_1: sub CPU, z80_2: sub 2 (sound) CPU - every game
 chip_pool_pkg::z80r_i_t [2:0] z80_i;
@@ -130,12 +110,10 @@ assign z80_o[2].a = z80_2_a;           assign z80_o[2].dout = z80_2_do;
 assign z80_o[2].m1_n = z80_2_m1_n;     assign z80_o[2].mreq_n = z80_2_mreq_n; assign z80_o[2].iorq_n = z80_2_iorq_n;
 assign z80_o[2].rd_n = z80_2_rd_n;     assign z80_o[2].wr_n = z80_2_wr_n;     assign z80_o[2].rfsh_n = z80_2_rfsh_n;
 
-// Namco customs (the board wires them to its 06xx's chip slots):
 //   n06_0: main 06xx (every game)                    n06_1: second 06xx, MASTER / 6 / 512 (Bosconian)
 //   n51_0: 51xx inputs / coins (every game)          n50_0: 50xx on n06_0 (Xevious, Bosconian)
 //   n54_0: 54xx noise (Galaga, Xevious, Bosconian)   n50_1: 50xx on n06_1 (Bosconian)
 //   n53_0: 53xx DIP reader (Dig Dug)                 n52_0: 52xx speech (Bosconian)
-// Each 5Nxx custom is an MB88 from the mb88 pool below plus its own mask ROM.
 chip_pool_pkg::namco_06xx_i_t n06_0_i, n06_1_i;
 chip_pool_pkg::namco_06xx_o_t n06_0_o, n06_1_o;
 chip_pool_pkg::namco_50xx_i_t n50_0_i, n50_1_i;
@@ -167,7 +145,6 @@ namco_06xx #(.BASE_DIV(8192)) n06_1
     .chip2_din(n06_1_i.chip2_din), .chip3_din(n06_1_i.chip3_din), .chip_dout(n06_1_o.chip_dout), .chip_wr(n06_1_o.chip_wr)
 );
 
-// MB88 x 5 (Namco custom MCUs, rtl/cpu/mb88_sv), driven by the namco_5Nxx customs:
 //   mb88_0: 51xx (every game)
 //   mb88_1: 50xx on the main 06xx (Xevious, Bosconian)
 //   mb88_2: 54xx (Galaga, Xevious, Bosconian) - IRQ_ENTRY_STALL 3, the 54xx's own setting
@@ -260,7 +237,6 @@ namco_52xx n52_0
     .mb88_i(n52_mb88_i), .mb88_o(mb88_o[4])
 );
 
-// 05xx starfield: Galaga (galaga_video), Bosconian (bosco_video)
 chip_pool_pkg::namco_05xx_i_t n05_0_i;
 chip_pool_pkg::namco_05xx_o_t n05_0_o;
 
@@ -271,7 +247,6 @@ namco_05xx n05_0
     .set_b(n05_0_i.set_b), .enable(n05_0_i.enable), .star(n05_0_o.star), .color(n05_0_o.color)
 );
 
-// sound: WSG (every game), 54xx noise / discrete mixer (Galaga, Xevious, Bosconian), 52xx voice chain (Bosconian)
 chip_pool_pkg::namco_wsg3_i_t     wsg_0_i;
 chip_pool_pkg::namco_wsg3_o_t     wsg_0_o;
 chip_pool_pkg::namco_52xx_snd_i_t n52snd_0_i;
@@ -298,8 +273,6 @@ namco_54xx_snd #(.BOARD(0)) n54snd_0
 );
 
 /////////////////////////////  Shared ROM blocks  /////////////////////////////
-// port A = the board's read, port B = the download (ioctl index 0, decoded by address above). A block shared by the
-// video boards holds the same bytes whichever of them reads it (one game loaded at a time).
 
 wire [13:0] main_rom_a, sub_rom_a, sub2_rom_a, gfx2_rom_a, gfx4_rom_a, speech_rom_a;
 wire [12:0] gfx1_rom_a, gfx3b_rom_a;
@@ -311,7 +284,6 @@ wire  [8:0] xprom_bgl_a, xprom_spl_a;
 wire  [7:0] main_rom_d, sub_rom_d, sub2_rom_d, gfx1_rom_d, gfx2_rom_d, gfx2b_rom_d, gfx3_rom_d, gfx3b_rom_d, gfx4_rom_d;
 wire  [7:0] prom0_d, prom1_d, xprom_b_d, xprom_bgl_d0, xprom_bgl_d1, xprom_spl_d0, xprom_spl_d1, speech_rom_d;
 
-// program ROMs (0000-3FFF), one per CPU
 dpram_dc #(.widthad_a(14)) main_rom
 (
     .clock_a(clk), .address_a(main_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(main_rom_d),
@@ -330,15 +302,12 @@ dpram_dc #(.widthad_a(14)) sub2_rom
     .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(ioctl_wr0 & sub2_cs), .q_b()
 );
 
-// gfx1 characters (8K: Galaga 4K 2bpp, Gatsbee 8K banked, Dig Dug 2K 1bpp, Xevious foreground 4K, Bosconian 4K)
 dpram_dc #(.widthad_a(13)) gfx1_rom
 (
     .clock_a(clk), .address_a(gfx1_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(gfx1_rom_d),
     .clock_b(clk), .address_b(ioctl_addr[12:0]), .data_b(ioctl_dout), .wren_b(gfx1_wr), .q_b()
 );
 
-// gfx2 (16K): Galaga / Dig Dug / Bosconian sprites, Xevious background plane 0 (0000-0FFF); plane 1 (1000-1FFF) has
-// its own block, read at the same time
 dpram_dc #(.widthad_a(14)) gfx2_rom
 (
     .clock_a(clk), .address_a(gfx2_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(gfx2_rom_d),
@@ -351,8 +320,6 @@ dpram_dc #(.widthad_a(12)) gfx2b_rom
     .clock_b(clk), .address_b(ioctl_addr[11:0]), .data_b(ioctl_dout), .wren_b(gfx2_wr && ioctl_addr[13:12] == 2'd1), .q_b()
 );
 
-// gfx3 0000-4FFF: Dig Dug playfield characters (0000-0FFF), Bosconian radar dots (0000-00FF), Xevious sprite planes
-// 0/1; Xevious sprite plane 2 (5000-6FFF) has its own block, read at the same time
 dpram_dc #(.widthad_a(15)) gfx3_rom
 (
     .clock_a(clk), .address_a(gfx3_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(gfx3_rom_d),
@@ -365,14 +332,12 @@ dpram_dc #(.widthad_a(13)) gfx3b_rom
     .clock_b(clk), .address_b(g3_hi[12:0]), .data_b(ioctl_dout), .wren_b(gfx3_wr && g3_hi < 18'h02000), .q_b()
 );
 
-// gfx4 (16K): Xevious planet map ROMs 2A / 2B / 2C (board), Dig Dug playfield maps (0000-0FFF)
 dpram_dc #(.widthad_a(14)) gfx4_rom
 (
     .clock_a(clk), .address_a(gfx4_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(gfx4_rom_d),
     .clock_b(clk), .address_b(ioctl_addr[13:0]), .data_b(ioctl_dout), .wren_b(gfx4_wr), .q_b()
 );
 
-// "proms" 000-3FF, two copies: Galaga / Dig Dug / Bosconian pixel path + sprite engine, Xevious red (000) + green (100)
 dpram_dc #(.widthad_a(10)) prom0
 (
     .clock_a(clk), .address_a(prom0_a), .data_a(8'h00), .wren_a(1'b0), .q_a(prom0_d),
@@ -385,7 +350,6 @@ dpram_dc #(.widthad_a(10)) prom1
     .clock_b(clk), .address_b(ioctl_addr[9:0]), .data_b(ioctl_dout), .wren_b(prom_wr && ioctl_addr[11:10] == 2'b00), .q_b()
 );
 
-// Xevious: blue (200), background lookup low / high (300 / 500), sprite lookup low / high (700 / 900)
 dpram_dc #(.widthad_a(8)) xprom_b
 (
     .clock_a(clk), .address_a(xprom_b_a), .data_a(8'h00), .wren_a(1'b0), .q_a(xprom_b_d),
@@ -414,7 +378,6 @@ dpram_dc #(.widthad_a(9)) xprom_spl_hi
     .clock_b(clk), .address_b(prom_off[8:0] - 9'h100), .data_b(ioctl_dout), .wren_b(prom_wr && prom_off >= 12'h900 && prom_off < 12'hB00), .q_b()
 );
 
-// Bosconian 52xx speech samples (three 4K ROMs)
 dpram_dc #(.widthad_a(14)) speech_rom
 (
     .clock_a(clk), .address_a(speech_rom_a), .data_a(8'h00), .wren_a(1'b0), .q_a(speech_rom_d),
@@ -429,7 +392,6 @@ dpram_dc #(.widthad_a(14)) speech_rom
 //   pr 6  2K  Xevious fg code C000          pr 7  2K  Xevious bg code C800
 //   pr 8  1K  sprite line buffer (Galaga / Dig Dug, Xevious, Bosconian)
 //   pr 9  1K  Bosconian radar dot line buffer
-// Private: the Dig Dug EAROM (64 x 8 registers in the board; its NVRAM port reads asynchronously).
 ram_pool_pkg::pram_i_t [9:0] pr_i;
 ram_pool_pkg::pram_o_t [9:0] pr_o;
 

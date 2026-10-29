@@ -1,29 +1,18 @@
-//============================================================================
-//
-//  Xevious video: scrolling 64 x 32 background and foreground, 64 sprites
-//
-//  Per MAME xevious.cpp (Nicola Salmoria): background (2bpp, colour lookup),
-//  sprites (3bpp, colour lookup, drawn over the background), foreground text
-//  (1bpp, on top); palette = three 4-bit colour PROMs. Coordinates are
-//  the raw screen: x 0-287, y 0-223. Counters come from galaga_video.
-//
-//============================================================================
+//  Based on MAME xevious.cpp (Nicola Salmoria, BSD-3-Clause)
 
 module xevious_video
 (
-    input               clk,            // 49.152 MHz
-    input         [2:0] sub,            // fabric clock within the pixel; ce6 when sub == 7
+    input               clk,
+    input         [2:0] sub,
     input               ce6,
-    input               xevios,         // bootleg ROM bit order (decoded on read)
-    input               flip,           // CRTC register 7
-    input               crt_flip,       // OSD: mirror the picture both ways
+    input               xevios,
+    input               flip,
+    input               crt_flip,
     input         [8:0] bg_sx, bg_sy, fg_sx, fg_sy,
     input         [8:0] hcnt,
     input         [8:0] vcnt,
     input               line_step,
 
-    // tile RAMs (B000 fg colour, B800 bg colour, C000 fg code, C800 bg code) and sprite registers
-    // (A780 code / colour, 8780 y / x, 9780 flags / x msb), read ports
     output reg   [10:0] fg_addr,
     input         [7:0] fgc_q,
     input         [7:0] fgv_q,
@@ -35,28 +24,27 @@ module xevious_video
     input         [7:0] sr2_q,
     input         [7:0] sr3_q,
 
-    // shared ROM blocks (rtl/galaga_dispatcher.sv), read ports
-    output       [11:0] fg_rom_a,       // gfx1 foreground characters
+    output       [11:0] fg_rom_a,
     input         [7:0] fg_rom_d,
-    output       [11:0] bg_rom_a,       // gfx2 background characters: d0 = plane 0 (gfx2 0000), d1 = plane 1 (1000)
+    output       [11:0] bg_rom_a,
     input         [7:0] bg_rom_d0,
     input         [7:0] bg_rom_d1,
-    output       [14:0] spa_rom_a,      // gfx3 0000-4FFF sprite planes 0/1
+    output       [14:0] spa_rom_a,
     input         [7:0] spa_rom_d,
-    output       [12:0] spb_rom_a,      // gfx3 5000-6FFF sprite plane 2
+    output       [12:0] spb_rom_a,
     input         [7:0] spb_rom_d,
-    output        [7:0] pal_prom_a,     // proms 000 red / 100 green / 200 blue
+    output        [7:0] pal_prom_a,
     input         [7:0] pal_prom_r,
     input         [7:0] pal_prom_g,
     input         [7:0] pal_prom_b,
-    output        [8:0] bgl_prom_a,     // proms 300 / 500 background lookup low / high
+    output        [8:0] bgl_prom_a,
     input         [7:0] bgl_prom_d0,
     input         [7:0] bgl_prom_d1,
-    output        [8:0] spl_prom_a,     // proms 700 / 900 sprite lookup low / high
+    output        [8:0] spl_prom_a,
     input         [7:0] spl_prom_d0,
     input         [7:0] spl_prom_d1,
 
-    output ram_pool_pkg::pram_i_t lb_i,       // sprite line buffer (RAM pool block)
+    output ram_pool_pkg::pram_i_t lb_i,
     input  ram_pool_pkg::pram_o_t lb_o,
 
     output reg    [7:0] red = 8'd0,
@@ -64,7 +52,6 @@ module xevious_video
     output reg    [7:0] blue = 8'd0
 );
 
-// raw-screen position of the current pixel (galaga_video's mapping)
 wire [8:0] px = (hcnt >= 9'h0F0) ? hcnt - 9'h0F0 : hcnt + 9'd144;
 wire [8:0] py = vcnt - 9'd16;
 wire       h_vis = (hcnt >= 9'h0F0) || (hcnt < 9'h090);
@@ -73,26 +60,21 @@ wire       mir   = crt_flip ^ flip;
 wire [8:0] fpx   = mir ? 9'd287 - px : px;
 wire [8:0] fpy   = mir ? 9'd223 - py : py;
 
-function [7:0] bswap_spr(input [7:0] v);    // result bits 7-0 = v bits 1,3,5,7,0,2,4,6
+function [7:0] bswap_spr(input [7:0] v);
     bswap_spr = {v[1], v[3], v[5], v[7], v[0], v[2], v[4], v[6]};
 endfunction
 
-//------------------------------------------------------- ROMs / PROMs --------------------------------------------------------//
-
-// foreground characters (gfx1, 512 x 8 x 8 1bpp; 100-1FF = the x-flipped set)
 reg  [11:0] fgr_addr;
 wire  [7:0] fgr_q;
 assign fg_rom_a = fgr_addr;
 assign fgr_q = fg_rom_d;
 
-// background characters (gfx2): plane 0 in the first 4K, plane 1 in the second
 reg  [11:0] bgr_addr;
 wire  [7:0] bgr0_q, bgr1_q;
 assign bg_rom_a = bgr_addr;
 assign bgr0_q = bg_rom_d0;
 assign bgr1_q = bg_rom_d1;
 
-// sprites (gfx3): planes 0/1 at gfx3 0000-4FFF, plane 2 at 5000-6FFF
 reg  [14:0] spa_addr;
 wire  [7:0] spa_q;
 assign spa_rom_a = spa_addr;
@@ -103,7 +85,6 @@ wire  [7:0] spb_q;
 assign spb_rom_a = spb_addr;
 assign spb_q = spb_rom_d;
 
-// PROMs: 000 red, 100 green, 200 blue (128 used), 300 / 500 background lookup low / high, 700 / 900 sprite lookup
 reg   [9:0] pal_addr;
 wire  [7:0] pal_r, pal_g, pal_b;
 assign pal_prom_a = pal_addr[7:0];
@@ -123,9 +104,6 @@ assign spl_prom_a = spl_addr;
 assign spl_lo = spl_prom_d0;
 assign spl_hi = spl_prom_d1;
 
-//------------------------------------------------------- Sprite line buffer --------------------------------------------------//
-
-// two lines of 512: entry = {opaque, palette entry 0-127}
 reg   [9:0] lb_disp_addr;
 reg         lb_disp_clr;
 wire  [7:0] lb_disp_q;
@@ -137,9 +115,6 @@ assign lb_i.a_addr = {5'd0, lb_disp_addr}; assign lb_i.a_d = 8'h00; assign lb_i.
 assign lb_i.b_addr = {5'd0, lb_eng_addr}; assign lb_i.b_d = lb_eng_data; assign lb_i.b_we = lb_eng_wr;
 assign lb_disp_q = lb_o.a_q;
 
-//------------------------------------------------------- Tile layers + pixel path --------------------------------------------//
-
-// tilemap scroll: source = screen + scroll - dx; background dx -20 / dy -16, foreground dx -32 / dy -18
 wire [8:0] bx = fpx + bg_sx + 9'd20;
 wire [7:0] by = fpy[7:0] + bg_sy[7:0] + 8'd16;
 wire [8:0] fx = fpx + fg_sx + 9'd32;
@@ -159,9 +134,6 @@ reg  [7:0] s_entry_b;
 reg        fg_bit_b;
 reg  [5:0] fg_color_b;
 
-// background: code = video + attr0 * 256, colour = attr 5-2 | code bit 7 << 4 | attr 1-0 << 5, attr 6 flip x,
-// attr 7 flip y. Foreground: colour = attr 1-0 << 4 | attr 5-2, attr 6 / 7 flips; the game flip picks the x-flipped
-// character set (code + 100) instead of mirroring x.
 always @(posedge clk) begin
     lb_disp_clr <= 1'b0;
     case (sub)
@@ -204,7 +176,6 @@ always @(posedge clk) begin
     endcase
 end
 
-// colour stage: foreground > sprites > background; palette entry 80 = black
 reg  [7:0] pen;
 reg  [7:0] bg_pen_b;
 always @(posedge clk) begin
@@ -217,7 +188,6 @@ always @(posedge clk) begin
     if (sub == 3'd1) pal_addr <= {2'b00, pen};
 end
 
-// 4-bit DACs: 0x0e, 0x1f, 0x43, 0x8f
 function [7:0] dac4(input [3:0] v);
     dac4 = (v[0] ? 8'h0e : 8'h00) + (v[1] ? 8'h1f : 8'h00) + (v[2] ? 8'h43 : 8'h00) + (v[3] ? 8'h8f : 8'h00);
 endfunction
@@ -232,11 +202,6 @@ always @(posedge clk) begin
     end
 end
 
-//------------------------------------------------------- Sprite engine -------------------------------------------------------//
-
-// sprites: for each of 64 entries at 780 + 2n with sr3[1] bit 6 clear: code = sr3[0] (or (sr3[0] & 3F) + 100
-// when sr2[0] bit 7), colour = sr3[1] & 7F, flips sr2[0] bits 2 (x) / 3 (y), sx = sr1[1] - 40 + 256 * sr2[1] bit 0,
-// sy = 223 - sr1[0]; sr2[0] bit 1 double height, bit 0 double width, as up to four 16 x 16 tiles.
 localparam S_IDLE = 3'd0, S_FETCH = 3'd1, S_TILE = 3'd2, S_DRAW = 3'd3, S_NEXT = 3'd4;
 
 reg  [2:0] st = S_IDLE;
@@ -255,11 +220,10 @@ wire       e_dh = r_flags[1];
 wire       e_dw = r_flags[0];
 wire       e_fx = r_flags[2] ^ flip;
 wire       e_fy = r_flags[3] ^ flip;
-wire [8:0] e_code0 = r_flags[7] ? {3'b100, r_code[5:0]} : {1'b0, r_code};   // set 3 = codes 100-13F
+wire [8:0] e_code0 = r_flags[7] ? {3'b100, r_code[5:0]} : {1'b0, r_code};
 wire [9:0] e_sx = {1'b0, r_xmsb[0], r_x} - 10'd40;
 wire [9:0] e_sy = 10'd223 - {2'b00, r_y};
 
-// tile t: code offset, x offset (0 / 16), y offset (0 / -16), present
 reg  [1:0] tc;
 reg        tx, ty, tp;
 always @(*) begin
@@ -292,15 +256,13 @@ end
 wire [8:0] e_base   = e_dh && e_dw ? {e_code0[8:2], 2'b00} : e_dh ? {e_code0[8:2], 1'b0, e_code0[0]} :
                       e_dw ? {e_code0[8:1], 1'b0} : e_code0;
 wire [9:0] e_ty     = e_sy - (ty ? 10'd16 : 10'd0);
-wire [9:0] e_dy     = {1'b0, tgt_y} - e_ty;                       // line inside the tile when < 16
+wire [9:0] e_dy     = {1'b0, tgt_y} - e_ty;
 wire       e_hit    = tp && e_dy < 10'd16;
 
-// 64 bytes per sprite: x 0-3 / 4-7 / 8-11 / 12-15 in bytes 0 / 8 / 16 / 24, rows 8-15 at +32
 wire [3:0]  d_c   = e_fx ? ~d_px : d_px;
 wire [14:0] d_off = {d_code[8:0], d_row[3], d_c[3:2], d_row[2:0]};
 wire [7:0]  spb_d = xevios ? bswap_spr(spb_q) : spb_q;
 
-// draw pipeline: ROM address, ROM data -> lookup address, lookup -> line buffer
 reg  [3:0] p_v;
 reg  [9:0] p_x[4];
 reg  [1:0] p_c[2];
@@ -314,12 +276,9 @@ always @(posedge clk) begin
     p_x[1] <= p_x[0]; p_x[2] <= p_x[1]; p_x[3] <= p_x[2];
     p_c[1] <= p_c[0]; p_hi[1] <= p_hi[0]; p_none[1] <= p_none[0];
 
-    // sprite layout: planes {plane-2 half + 4, 0, 4}; plane 2 for codes 80-FF is the high nibble of the stored
-    // byte, codes 100-13F have none
     if (p_v[1]) spl_addr <= {r_color[5:0], p_none[1] ? 1'b0 : spb_d[(p_hi[1] ? 3'd7 : 3'd3) - {1'b0, p_c[1]}],
                              spa_q[3'd7 - {1'b0, p_c[1]}], spa_q[3'd3 - {1'b0, p_c[1]}]};
 
-    // lookup bit 7 clear = transparent
     if (p_v[3] && spl_hi[3] && p_x[3] < 10'd288) begin
         lb_eng_addr <= {tgt_buf, p_x[3][8:0]};
         lb_eng_data <= {1'b1, spl_hi[2:0], spl_lo[3:0]};
@@ -331,7 +290,7 @@ always @(posedge clk) begin
         tgt_buf <= ~vcnt[0];
         s_num   <= 6'd0;
         f_cnt   <= 2'd0;
-        st      <= (vcnt >= 9'd15 && vcnt < 9'd239) ? S_FETCH : S_IDLE;   // visible lines only: blank lines never clear their half
+        st      <= (vcnt >= 9'd15 && vcnt < 9'd239) ? S_FETCH : S_IDLE;
     end
     else case (st)
         S_FETCH: begin

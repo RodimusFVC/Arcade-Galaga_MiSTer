@@ -108,11 +108,17 @@ typedef struct packed {
     logic  [9:0] sound;                 // jt49 internal A+B+C mix (registered per accumulator cycle)
 } ay_o_t;
 
-// 8039 (T48 t8039_notri_extrom, EA low, program on pmem; T0 / T1 low, P1 / P2 inputs high)
+// 8035 / 8039 (T48 t8039_notri_extrom, EA low, program on pmem). Superset of every core's pins: a core that doesn't use
+// reset_n / T0 / T1 / the port inputs / the MOVX bus ties those pins in its dispatcher and leaves the fields undriven.
 typedef struct packed {
+    logic        reset_n;
     logic        xtal_en;
     logic        int_n;
-    logic  [7:0] db;
+    logic        t0;
+    logic        t1;
+    logic  [7:0] p1_in;
+    logic  [7:0] p2_in;
+    logic  [7:0] db;                    // MOVX read data
     logic  [7:0] pmem_d;
 } mcs48_i_t;
 
@@ -121,9 +127,15 @@ typedef struct packed {
     logic  [7:0] p2;
     logic [11:0] pmem_a;
     logic        rd_n;
+    logic        wr_n;
+    logic        ale;
+    logic  [7:0] db;                    // address (at ALE) / MOVX write data
+    logic        db_dir;                // 1 = the 8039 drives db (Sega speech board latch timing)
 } mcs48_o_t;
 
-// Z80 (T80pa, Mode 0; BUSRQ_n inactive). RESET_n is on the bus: Lady Bug / 8203 hold their CPUs in reset ~48 ms past the core reset
+// Z80 (T80pa, Mode 0). Superset of every core's pins: a core without a DMA ties BUSRQ_n high in its dispatcher and leaves
+// busrq_n / busak_n undriven; inte = IFF1 (T80pa REG bit 210: the 8080's INTE pin for an 8080 board). RESET_n is on the bus:
+// Lady Bug / 8203 hold their CPUs in reset ~48 ms past the core reset
 typedef struct packed {
     logic        reset_n;
     logic        cen_p;
@@ -131,6 +143,7 @@ typedef struct packed {
     logic        wait_n;
     logic        int_n;
     logic        nmi_n;
+    logic        busrq_n;
     logic  [7:0] di;
 } z80pa_i_t;
 
@@ -143,6 +156,8 @@ typedef struct packed {
     logic        rd_n;
     logic        wr_n;
     logic        rfsh_n;
+    logic        busak_n;
+    logic        inte;                    // IFF1 (an 8080 board's INTE pin)
 } z80pa_o_t;
 
 // SN76489 (jt89, INTERPOL16 0, MODE 0). rst is on the bus: Lady Bug resets its pair on power-on only
@@ -225,7 +240,7 @@ typedef struct packed {
     logic        intack;
 } s2650_o_t;
 
-// 6502 (T65, Mode 00, BCD_en 0 = the RP2A03's core). Enable = one CPU cycle. res_n on the bus: Punch-Out's main
+// 6502 (stock T65, Mode 00). Enable = one CPU cycle. res_n on the bus: Punch-Out's main
 // latch Q3 resets the RP2A03. Verbatim copy of Arcade-Nintendo's t65_i_t / t65_o_t (its NEW types, not merged yet).
 typedef struct packed {
     logic        res_n;
@@ -1116,5 +1131,184 @@ typedef struct packed {
     logic        star;
     logic  [5:0] color;         // BBGGRR
 } namco_05xx_o_t;
+
+// Intel 8257 DMA controller (rtl/cpu/i8257.sv, ours). Field names = the module's ports.
+typedef struct packed {
+    logic        reset;
+    logic        ce;
+    logic        rev_rw;
+    logic        cs;
+    logic  [3:0] a;
+    logic        wr;
+    logic        rd;
+    logic  [7:0] din;
+    logic  [3:0] drq;
+    logic        hlda;
+    logic  [7:0] mem_d;
+    logic  [7:0] io_d;
+} i8257_i_t;
+
+typedef struct packed {
+    logic  [7:0] dout;
+    logic        hrq;
+    logic [15:0] addr;
+    logic  [1:0] chan;
+    logic        busy;
+    logic        ior;
+    logic        iow;
+    logic        memr;
+    logic        memw;
+    logic  [7:0] data;
+} i8257_o_t;
+
+// Zilog Z80 DMA (rtl/cpu/z80dma.sv, ours). Field names = the module's ports.
+typedef struct packed {
+    logic        reset;
+    logic        cen_p;
+    logic        cs;
+    logic        wr;
+    logic        rd;
+    logic  [7:0] din;
+    logic        rdy;
+    logic        bai;
+    logic  [7:0] bus_d;
+} z80dma_i_t;
+
+typedef struct packed {
+    logic  [7:0] dout;
+    logic        busrq;
+    logic        busy;
+    logic [15:0] addr;
+    logic        mreq;
+    logic        iorq;
+    logic        memr;
+    logic        memw_s;
+    logic  [7:0] data;
+} z80dma_o_t;
+
+// TI SN76477 complex sound generator (rtl/sound/sn76477.sv, ours). Field names = the module's ports; the analog
+// part values arrive as per-sample steps (Q24 volts), so one instance serves any board's parts.
+typedef struct packed {
+    logic        reset;
+    logic        step;
+    logic        enable;
+    logic        vco_sel;
+    logic  [2:0] mixer;
+    logic  [1:0] env;
+    logic [31:0] vco_v;
+    logic [31:0] os_c;
+    logic [31:0] os_d;
+    logic [31:0] slf_c;
+    logic [31:0] slf_d;
+    logic [31:0] vco_c;
+    logic [31:0] vco_d;
+    logic [31:0] nf_c;
+    logic [31:0] nf_d;
+    logic [31:0] ad_c;
+    logic [31:0] ad_d;
+    logic [31:0] noise_f;
+    logic [31:0] fs;
+} sn76477_i_t;
+
+typedef struct packed {
+    logic [31:0] vout;
+} sn76477_o_t;
+
+// HD38880 speech synthesizer (rtl/sound/hd38880/hd38880_top.v, ours; CLK_HZ = the board clock, core reset / pause).
+// game_is_fantasy picks the host command protocol (Vanguard / Fantasy); the PARCOR data ROM is read through
+// rom_addr / rom_data (one clock).
+typedef struct packed {
+    logic        host_wr;
+    logic  [5:0] host_din;
+    logic        game_is_fantasy;
+    logic  [7:0] rom_data;
+} hd38880_i_t;
+
+typedef struct packed {
+    logic [12:0] rom_addr;
+    logic [14:0] audio;                 // signed
+} hd38880_o_t;
+
+// SN76477 noise leg (rtl/sound/sn76477_noise.v, ours: noise clock + optional RC filter, no VCO / SLF / envelope).
+// The part values are per-slot parameters on the instance; gate = ENABLE (level).
+typedef struct packed {
+    logic        gate;
+} sn76477_noise_i_t;
+
+typedef struct packed {
+    logic [15:0] audio;                 // signed
+} sn76477_noise_o_t;
+
+// SP0250 LPC speech (rtl/sound/sp0250/sp0250.sv, ours: MAME sp0250.cpp port). ce_3_12m / ce_rom_1_56m = the board's
+// 3.12 MHz and 1.56 MHz enables; reset_n on the bus (the speech board's reset).
+typedef struct packed {
+    logic        reset_n;
+    logic        ce_3_12m;
+    logic        ce_rom_1_56m;
+    logic  [7:0] data_in;
+    logic        wr;
+} sp0250_i_t;
+
+typedef struct packed {
+    logic        drq;
+    logic [13:0] audio;                 // signed
+    logic        audio_valid;
+} sp0250_o_t;
+
+// 8035 through the i8035.v wrapper (bare t48_core, 64-byte RAM; program via the external bus, I_EA = 1).
+// rst_n on the bus: the Sega Universal Sound Board holds it in reset while the host loads its program RAM.
+typedef struct packed {
+    logic        rst_n;
+    logic        ce;
+    logic        int_n;
+    logic        ea;
+    logic        t0;
+    logic        t1;
+    logic  [7:0] db;
+    logic  [7:0] p1;
+    logic  [7:0] p2;
+} i8035_i_t;
+
+typedef struct packed {
+    logic        psen_n;
+    logic        rd_n;
+    logic        wr_n;
+    logic        ale;
+    logic        prog_n;
+    logic        t0;
+    logic  [7:0] db;
+    logic  [7:0] p1;
+    logic  [7:0] p2;
+} i8035_o_t;
+
+// MCL86 8088 as one CPU (rtl/cpu/MCL86/mcl86_cpu.sv: BIU + EU + bus glue): request / acknowledge bus
+typedef struct packed {
+    logic        reset;
+    logic        cpu_clk;               // 8088 pin clock
+    logic        nmi;
+    logic        intr;
+    logic  [7:0] req_rdata;
+    logic        req_ack;               // 1 clk: rdata valid / write taken
+} mcl86_i_t;
+typedef struct packed {
+    logic        req;
+    logic  [2:0] req_type;              // S2-S0 of the cycle
+    logic [19:0] req_addr;
+    logic  [7:0] req_wdata;
+} mcl86_o_t;
+
+// Votrax SC-01 / SC-01A (rtl/sound/sc01, ours); the internal ROM is a dispatcher ROM block
+typedef struct packed {
+    logic        reset;
+    logic        mc;                    // master-clock enable
+    logic        stb;
+    logic  [5:0] phoneme;
+    logic  [1:0] inflection;
+} sc01_i_t;
+typedef struct packed {
+    logic        ar;                    // 1 = ready
+    logic [15:0] audio;                 // signed
+    logic        sample;
+} sc01_o_t;
 
 endpackage

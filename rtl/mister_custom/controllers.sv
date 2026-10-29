@@ -38,6 +38,10 @@
 //  in verilator/controllers/lint_cfg.sv, each proven against the core's own block by tb_keyboard_v2 / tb_port_map_v2.
 //  v3 (2026-10-27). Same rule: a v2 instantiation behaves bit-identically (tb_v1v2 at defaults).
 //    ctl_ad_stick   HOLD = 1: a released D-pad / button keeps the offset (MAME PORT_CENTERDELTA(0), e.g. a throttle)
+//  v5 (2026-10-28). Same rule: a v4 instantiation behaves bit-identically (tb_paddle / tb_v1v2 at defaults; tb_paddle_v5).
+//    ctl_paddle     axis_v = 1: the paddle moves vertically on screen (stick Y, D-pad up / down, mouse Y drive it);
+//                   rot = the game's MAME orientation: adds the geometric reverse when the paddle value follows the
+//                   native raster axis (ROT90: horizontal paddles, ROT270: vertical, ROT180: both). Pong core first.
 //  v4 (2026-10-27). Same rule: a v3 instantiation behaves bit-identically (tb_steer / tb_v1v2 at defaults).
 //    ctl_steer      RATE = 1: mode 1 analog stick / wheel X = turning SPEED (MAME: an absolute axis on a relative
 //                   IPT_DIAL port adds its value every frame); full lock = the D-pad rate x Sensitivity
@@ -630,11 +634,27 @@ module ctl_paddle #(parameter [7:0] PMIN = 8'h1D, parameter [7:0] PMAX = 8'hCB, 
     input       [7:0] stick_x,        // signed
     input             left,
     input             right,
+    // v5 (unconnected = v4): screen axis and game orientation
+    input  tri0       axis_v,         // 1 = the paddle moves vertically on screen: the next three replace stick_x /
+    input  tri0 [7:0] stick_y,        //     left / right / mouse_dx (down = increase, stick Y signed, down +)
+    input  tri0       up,
+    input  tri0       down,
+    input  tri0 [9:0] mouse_dy,       //     (ctl_mouse dy: down +)
+    input  tri0 [1:0] rot,            // 0 ROT0, 1 ROT90, 2 ROT180, 3 ROT270 (the paddle value follows the native axis)
 
     output      [7:0] pos
 );
 
 localparam [10:0] LO = {PMIN, 3'd0}, HI = {PMAX, 3'd0}, MID = {PCEN, 3'd0};
+
+// v5: the axis the player sees, and the reverse the rotation adds (CW: screen x = H - 1 - native y; CCW: screen
+// y = W - 1 - native x; 180: both)
+wire       geo_rev = axis_v ? (rot == 2'd3 || rot == 2'd2) : (rot == 2'd1 || rot == 2'd2);
+wire       rev     = reverse ^ geo_rev;
+wire [7:0] stk     = axis_v ? stick_y : stick_x;
+wire       dec     = axis_v ? up : left;
+wire       inc     = axis_v ? down : right;
+wire [9:0] mdx     = axis_v ? mouse_dy : mouse_dx;
 localparam [15:0] SPAN = {8'd0, PMAX - PMIN};
 
 // value * sensitivity in 1/8 counts
@@ -660,18 +680,18 @@ reg  [7:0] pad_d = 8'h80;
 reg [10:0] posq = MID;                               // position in 1/8 counts
 
 wire signed [9:0] spin_d  = (spinner[8] != spin_seen) ? $signed({{2{spinner[7]}}, spinner[7:0]}) : 10'sd0;
-wire signed [9:0] mouse_d = mouse_ev ? $signed(mouse_dx) : 10'sd0;
-wire signed [7:0] sx      = stick_x;
+wire signed [9:0] mouse_d = mouse_ev ? $signed(mdx) : 10'sd0;
+wire signed [7:0] sx      = stk;
 wire signed [9:0] sx_e    = {{2{sx[7]}}, sx};
-wire signed [9:0] frame_d = (sx > 8'sd12 || sx < -8'sd12) ? (sx_e >>> 4) : right ? 10'sd5 : left ? -10'sd5 : 10'sd0;
+wire signed [9:0] frame_d = (sx > 8'sd12 || sx < -8'sd12) ? (sx_e >>> 4) : inc ? 10'sd5 : dec ? -10'sd5 : 10'sd0;
 
 wire signed [15:0] d_q3 = (scale_q3(spin_d, sensitivity) >>> 1) + (scale_q3(mouse_d, sensitivity) >>> 1) +
                           (tick ? scale_q3(frame_d, sensitivity) : 16'sd0);
-wire signed [15:0] nxt  = $signed({5'd0, posq}) + (reverse ? -d_q3 : d_q3);
+wire signed [15:0] nxt  = $signed({5'd0, posq}) + (rev ? -d_q3 : d_q3);
 
 // absolute knob: 00-FF -> PMIN-PMAX
 /* verilator lint_off UNUSED */
-wire [15:0] knob  = {8'd0, reverse ? ~paddle : paddle} * SPAN;   // high byte used
+wire [15:0] knob  = {8'd0, rev ? ~paddle : paddle} * SPAN;   // high byte used
 /* verilator lint_on UNUSED */
 wire [10:0] abs_q = {(PMIN + knob[15:8]), 3'd0};
 

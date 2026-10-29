@@ -1,18 +1,8 @@
-//============================================================================
-//
-//  Namco 52xx sample player: Bosconian analog output stage
-//
-//  Per MAME galaga_a.cpp bosco_discrete CHANL4: the 52xx P0-P3 levels through
-//  a 4 V resistor DAC (100k / 47k / 22k / 10k), a 2nd-order 80 Hz high-pass
-//  (damping 1/0.3), a 2nd-order 2400 Hz low-pass (damping 1/0.9) and a gain
-//  of 0.25, at 48 kHz. Output in volts, 2^22 per volt, for namco_54xx_snd's
-//  Bosconian mixer. Coefficients: verilator/noise54/coef52.py.
-//
-//============================================================================
+//  Based on MAME galaga_a.cpp (Derrick Renaud, BSD-3-Clause)
 
 module namco_52xx_snd
 (
-    input                    clk,            // 49.152 MHz
+    input                    clk,
     input                    reset,
     input                    pause,
     input              [3:0] p_data,
@@ -31,7 +21,6 @@ always @(posedge clk) begin
     end
 end
 
-// DAC level in units of 1/16384 V
 function automatic [16:0] dac(input [3:0] l);
     case (l)
         4'h0: dac = 17'd0;     4'h1: dac = 17'd3708;  4'h2: dac = 17'd7890;  4'h3: dac = 17'd11598;
@@ -41,16 +30,14 @@ function automatic [16:0] dac(input [3:0] l);
     endcase
 endfunction
 
-// state in units of 2^-22 V
-reg signed [31:0] hx0, hx1, hx2, hy1, hy2;     // high-pass
-reg signed [31:0] ly1, ly2, lx1, lx2;          // low-pass (its input is the high-pass output)
-reg               stage;                        // 0 high-pass, 1 low-pass
+reg signed [31:0] hx0, hx1, hx2, hy1, hy2;
+reg signed [31:0] ly1, ly2, lx1, lx2;
+reg               stage;
 reg         [2:0] t;
 reg               busy = 1'b0;
 reg signed [63:0] acc;
 reg signed [31:0] hy_new_r;
 
-// b0, b1, b2, -a1, -a2 (Q28)
 reg signed [31:0] coef, operand;
 always @(*) begin
     case ({stage, t})
@@ -101,7 +88,7 @@ always @(posedge clk) begin
     else begin
         lx2 <= lx1; lx1 <= hy_new_r;
         ly2 <= ly1; ly1 <= y_new;
-        volts <= y_new >>> 2;                       // gain 0.25
+        volts <= y_new >>> 2;
         busy  <= 1'b0;
     end
 end

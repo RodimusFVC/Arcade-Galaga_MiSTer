@@ -1,32 +1,22 @@
-//============================================================================
-//
-//  Namco 53xx multiplexed input reader: MB8843 MCU running its 0x400 mask ROM
-//
-//  Per MAME namco53.cpp. Read-only from the CPU side: the 06xx read returns
-//  the O port. K and R0-R3 come from the board.
-//
-//============================================================================
+//  Based on MAME namco53.cpp (Aaron Giles, BSD-3-Clause)
 `default_nettype none
 
 module namco_53xx
 (
     input  wire        clk,
-    input  wire        ena,        // MCU clock enable, 256 kHz machine cycles
+    input  wire        ena,
     input  wire        reset_n,
 
-    // 06xx side
-    input  wire        chip_sel,   // select pulse -> MCU IRQ
+    input  wire        chip_sel,
     output wire  [7:0] data_out,
 
     input  wire  [3:0] k_in,
     input  wire  [7:0] in_a,       // input<0> = in_a[3:0], input<1> = in_a[7:4]
     input  wire  [7:0] in_b,       // input<2> = in_b[3:0], input<3> = in_b[7:4]
 
-    // 0x400 mask ROM load (write strobe already decoded by the board)
     input  wire        rom_wr,
     input  wire  [9:0] rom_addr_in,
     input  wire  [7:0] rom_data_in,
-    // the shared MB88 (rtl/galaga_dispatcher.sv pool)
     output chip_pool_pkg::mb88_i_t mb88_i,
     input  chip_pool_pkg::mb88_o_t mb88_o
 );
@@ -36,11 +26,10 @@ module namco_53xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    // MB8843: the shared MB88 in rtl/galaga_dispatcher.sv
     assign mb88_i.ena     = ena;
     assign mb88_i.reset_n = reset_n;
     assign mb88_i.k       = k_in;
-    assign mb88_i.r_in    = {in_b[7:4], in_b[3:0], in_a[7:4], in_a[3:0]};   // R3, R2, R1, R0
+    assign mb88_i.r_in    = {in_b[7:4], in_b[3:0], in_a[7:4], in_a[3:0]};
     assign mb88_i.irq_n   = ~chip_sel;
     assign mb88_i.tc_n    = 1'b1;
     assign mb88_i.si_n    = 1'b1;

@@ -1,25 +1,13 @@
-//============================================================================
-//
-//  Namco 05xx starfield
-//
-//  Per MAME starfield_05xx.cpp (R. Hildinger): 16-bit Fibonacci LFSR (taps
-//  16, 13, 11, 6), one step per pixel across a 256-pixel window of each of
-//  the 224 visible lines; a hit (state & FA14 == 7800) is a star of set
-//  {b10, b8} and colour ~{b4, b1, b0, b7, b6, b5} (BBGGRR). The rest of each
-//  frame's steps (pre / post visible lines, X and Y scroll) run at fabric
-//  speed in vertical blank: post + pre at the end of the visible area with
-//  the current Y speed, and the X adjustment when the speeds are latched.
-//
-//============================================================================
+//  Based on MAME starfield_05xx.cpp (Robert Hildinger, BSD-3-Clause)
 
 module namco_05xx
 (
     input               clk,
     input               ce6,
-    input               pause,          // freeze: every frame replays the one shown when pause began
-    input               line_step,      // end of line: vcnt advances
+    input               pause,
+    input               line_step,
     input         [8:0] vcnt,
-    input               win,            // this pixel is inside the 256-pixel window of a visible line
+    input               win,
 
     input         [2:0] speed_x,
     input         [2:0] speed_y,
@@ -27,12 +15,12 @@ module namco_05xx
     input         [1:0] set_b,
     input               enable,
 
-    output              star,           // a star of an active set is at this pixel
-    output        [5:0] color           // BBGGRR
+    output              star,
+    output        [5:0] color
 );
 
 reg  [15:0] lfsr = 16'h7FFF;
-reg  [15:0] lfsr_frame = 16'h7FFF;     // state at the start of the last frame drawn while running
+reg  [15:0] lfsr_frame = 16'h7FFF;
 reg  [13:0] bulk = 14'd0;
 reg         en = 1'b0;
 reg   [1:0] sa, sb;
@@ -43,21 +31,19 @@ wire  [1:0] set = {lfsr[10], lfsr[8]};
 assign star  = en && win && ((lfsr & 16'hFA14) == 16'h7800) && (set == sa || set == sb);
 assign color = ~{lfsr[4], lfsr[1], lfsr[0], lfsr[7], lfsr[6], lfsr[5]};
 
-// pre-visible + post-visible lines (x 256) per Y speed, less the 4 steps the X adjustment adds back
 function [13:0] frame_steps(input [2:0] y);
     case (y)
-        3'd0: frame_steps = 14'd8188;   // 22 + 10
-        3'd1: frame_steps = 14'd8444;   // 23 + 10
-        3'd2: frame_steps = 14'd8700;   // 22 + 12
-        3'd3: frame_steps = 14'd8956;   // 23 + 12
-        3'd4: frame_steps = 14'd7164;   // 19 + 9
-        3'd5: frame_steps = 14'd7420;   // 20 + 9
-        3'd6: frame_steps = 14'd7676;   // 20 + 10
-        3'd7: frame_steps = 14'd7932;   // 22 + 9
+        3'd0: frame_steps = 14'd8188;
+        3'd1: frame_steps = 14'd8444;
+        3'd2: frame_steps = 14'd8700;
+        3'd3: frame_steps = 14'd8956;
+        3'd4: frame_steps = 14'd7164;
+        3'd5: frame_steps = 14'd7420;
+        3'd6: frame_steps = 14'd7676;
+        3'd7: frame_steps = 14'd7932;
     endcase
 endfunction
 
-// X speed: 4 + (0, 1, 2, 3, -4, -3, -2, -1)
 function [2:0] x_steps(input [2:0] q);
     case (q)
         3'd0: x_steps = 3'd4; 3'd1: x_steps = 3'd5; 3'd2: x_steps = 3'd6; 3'd3: x_steps = 3'd7;
@@ -66,7 +52,7 @@ function [2:0] x_steps(input [2:0] q);
 endfunction
 
 always @(posedge clk) begin
-    if (line_step && vcnt == 9'd15) begin                  // vblank ends: speeds, sets and enable latched
+    if (line_step && vcnt == 9'd15) begin
         en <= enable;
         sa <= set_a;
         sb <= set_b;

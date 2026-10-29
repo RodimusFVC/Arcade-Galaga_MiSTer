@@ -1,22 +1,13 @@
-//============================================================================
-//
-//  Namco 52xx sample player: MB8843 MCU running its 0x400 mask ROM
-//
-//  Per MAME namco52.cpp. A 06xx write latches the command (K = command[3:0]);
-//  the MCU sets the sample address on R2 (A0-A3), R3 (A4-A7) and O (A8-A15),
-//  reads the byte on R0 / R1 and plays it on P0-P3. SI selects the board's
-//  ROM addressing; TC is the board's external sample clock.
-//
-//============================================================================
+//  Based on MAME namco52.cpp (Aaron Giles, BSD-3-Clause)
 `default_nettype none
 
 module namco_52xx
 (
     input  wire        clk,
-    input  wire        ena,        // MCU clock enable, 256 kHz machine cycles
+    input  wire        ena,
     input  wire        reset_n,
 
-    input  wire        chip_sel,   // select pulse -> MCU IRQ
+    input  wire        chip_sel,
     input  wire        wr_en,
     input  wire  [7:0] wr_data,
 
@@ -27,11 +18,9 @@ module namco_52xx
     output wire [15:0] sample_addr,
     input  wire  [7:0] sample_data,
 
-    // 0x400 mask ROM load (write strobe already decoded by the board)
     input  wire        rom_wr,
     input  wire  [9:0] rom_addr_in,
     input  wire  [7:0] rom_data_in,
-    // the shared MB88 (rtl/galaga_dispatcher.sv pool)
     output chip_pool_pkg::mb88_i_t mb88_i,
     input  chip_pool_pkg::mb88_o_t mb88_o
 );
@@ -50,11 +39,10 @@ module namco_52xx
     wire [10:0] rom_addr;
     wire  [7:0] rom_data;
 
-    // MB8843: the shared MB88 in rtl/galaga_dispatcher.sv
     assign mb88_i.ena     = ena;
     assign mb88_i.reset_n = reset_n;
     assign mb88_i.k       = cmd[3:0];
-    assign mb88_i.r_in    = {4'h0, 4'h0, sample_data[7:4], sample_data[3:0]};   // R3, R2, R1, R0
+    assign mb88_i.r_in    = {4'h0, 4'h0, sample_data[7:4], sample_data[3:0]};
     assign mb88_i.irq_n   = ~chip_sel;
     assign mb88_i.tc_n    = tc_n;
     assign mb88_i.si_n    = si;
