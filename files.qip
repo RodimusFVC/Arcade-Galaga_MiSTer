@@ -17,7 +17,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/art_resample.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/png_decode.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/inflate.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_06xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_51xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_51xx/namco_51xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_53xx/namco_53xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_54xx/namco_54xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_54xx_snd/namco_54xx_snd.sv
