@@ -362,8 +362,8 @@ wire       bwr_ram = bwr | clr_run;
 wire  [7:0] vram_q, ram1_q, ram2_q, ram3_q;
 wire [10:0] ra = (v_xev | v_bo) ? ba[10:0] : {1'b0, ba[9:0]};
 
-assign pr_i[0].a_addr = {3'd0, (v_bo ? ba[11:0] : {1'b0, ba[10:0]})}; assign pr_i[0].a_d = bdo; assign pr_i[0].a_we = bwr_ram & cs_vram;
-assign pr_i[0].b_addr = {3'd0, (v_bo ? bvram_addr_b : {1'b0, vram_addr_b})}; assign pr_i[0].b_d = 8'h00; assign pr_i[0].b_we = 1'b0;
+assign pr_i[0].a_addr = {4'd0, (v_bo ? ba[11:0] : {1'b0, ba[10:0]})}; assign pr_i[0].a_d = bdo; assign pr_i[0].a_we = bwr_ram & cs_vram;
+assign pr_i[0].b_addr = {4'd0, (v_bo ? bvram_addr_b : {1'b0, vram_addr_b})}; assign pr_i[0].b_d = 8'h00; assign pr_i[0].b_we = 1'b0;
 assign vram_q = pr_o[0].a_q;
 assign vram_q_b = pr_o[0].b_q;
 
@@ -387,37 +387,37 @@ always @(posedge clk) begin
     end
 end
 
-assign pr_i[1].a_addr = {4'd0, (ra)}; assign pr_i[1].a_d = bdo; assign pr_i[1].a_we = bwr_ram & cs_ram1;
-assign pr_i[1].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[1].b_d = 8'h00; assign pr_i[1].b_we = 1'b0;
+assign pr_i[1].a_addr = {5'd0, (ra)}; assign pr_i[1].a_d = bdo; assign pr_i[1].a_we = bwr_ram & cs_ram1;
+assign pr_i[1].b_addr = {5'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[1].b_d = 8'h00; assign pr_i[1].b_we = 1'b0;
 assign ram1_q = pr_o[1].a_q;
 assign ram1_q_b = pr_o[1].b_q;
 
-assign pr_i[2].a_addr = {4'd0, (ra)}; assign pr_i[2].a_d = bdo; assign pr_i[2].a_we = bwr_ram & cs_ram2;
-assign pr_i[2].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[2].b_d = 8'h00; assign pr_i[2].b_we = 1'b0;
+assign pr_i[2].a_addr = {5'd0, (ra)}; assign pr_i[2].a_d = bdo; assign pr_i[2].a_we = bwr_ram & cs_ram2;
+assign pr_i[2].b_addr = {5'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[2].b_d = 8'h00; assign pr_i[2].b_we = 1'b0;
 assign ram2_q = pr_o[2].a_q;
 assign ram2_q_b = pr_o[2].b_q;
 
-assign pr_i[3].a_addr = {4'd0, (ra)}; assign pr_i[3].a_d = bdo; assign pr_i[3].a_we = bwr_ram & cs_ram3;
-assign pr_i[3].b_addr = {4'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[3].b_d = 8'h00; assign pr_i[3].b_we = 1'b0;
+assign pr_i[3].a_addr = {5'd0, (ra)}; assign pr_i[3].a_d = bdo; assign pr_i[3].a_we = bwr_ram & cs_ram3;
+assign pr_i[3].b_addr = {5'd0, (v_xev ? xspr_addr_b : {1'b0, spr_addr_b})}; assign pr_i[3].b_d = 8'h00; assign pr_i[3].b_we = 1'b0;
 assign ram3_q = pr_o[3].a_q;
 assign ram3_q_b = pr_o[3].b_q;
 
 wire  [7:0] fgc_q, bgc_q, fgv_q, bgv_q;
 
-assign pr_i[4].a_addr = {4'd0, (ba[10:0])}; assign pr_i[4].a_d = bdo; assign pr_i[4].a_we = bwr_ram & cs_fgc;
-assign pr_i[4].b_addr = {4'd0, (xfg_addr_b)}; assign pr_i[4].b_d = 8'h00; assign pr_i[4].b_we = 1'b0;
+assign pr_i[4].a_addr = {5'd0, (ba[10:0])}; assign pr_i[4].a_d = bdo; assign pr_i[4].a_we = bwr_ram & cs_fgc;
+assign pr_i[4].b_addr = {5'd0, (xfg_addr_b)}; assign pr_i[4].b_d = 8'h00; assign pr_i[4].b_we = 1'b0;
 assign fgc_q = pr_o[4].a_q;
 assign fgc_q_b = pr_o[4].b_q;
-assign pr_i[5].a_addr = {4'd0, (ba[10:0])}; assign pr_i[5].a_d = bdo; assign pr_i[5].a_we = bwr_ram & cs_bgc;
-assign pr_i[5].b_addr = {4'd0, (xbg_addr_b)}; assign pr_i[5].b_d = 8'h00; assign pr_i[5].b_we = 1'b0;
+assign pr_i[5].a_addr = {5'd0, (ba[10:0])}; assign pr_i[5].a_d = bdo; assign pr_i[5].a_we = bwr_ram & cs_bgc;
+assign pr_i[5].b_addr = {5'd0, (xbg_addr_b)}; assign pr_i[5].b_d = 8'h00; assign pr_i[5].b_we = 1'b0;
 assign bgc_q = pr_o[5].a_q;
 assign bgc_q_b = pr_o[5].b_q;
-assign pr_i[6].a_addr = {4'd0, (ba[10:0])}; assign pr_i[6].a_d = bdo; assign pr_i[6].a_we = bwr_ram & cs_fgv;
-assign pr_i[6].b_addr = {4'd0, (xfg_addr_b)}; assign pr_i[6].b_d = 8'h00; assign pr_i[6].b_we = 1'b0;
+assign pr_i[6].a_addr = {5'd0, (ba[10:0])}; assign pr_i[6].a_d = bdo; assign pr_i[6].a_we = bwr_ram & cs_fgv;
+assign pr_i[6].b_addr = {5'd0, (xfg_addr_b)}; assign pr_i[6].b_d = 8'h00; assign pr_i[6].b_we = 1'b0;
 assign fgv_q = pr_o[6].a_q;
 assign fgv_q_b = pr_o[6].b_q;
-assign pr_i[7].a_addr = {4'd0, (ba[10:0])}; assign pr_i[7].a_d = bdo; assign pr_i[7].a_we = bwr_ram & cs_bgv;
-assign pr_i[7].b_addr = {4'd0, (xbg_addr_b)}; assign pr_i[7].b_d = 8'h00; assign pr_i[7].b_we = 1'b0;
+assign pr_i[7].a_addr = {5'd0, (ba[10:0])}; assign pr_i[7].a_d = bdo; assign pr_i[7].a_we = bwr_ram & cs_bgv;
+assign pr_i[7].b_addr = {5'd0, (xbg_addr_b)}; assign pr_i[7].b_d = 8'h00; assign pr_i[7].b_we = 1'b0;
 assign bgv_q = pr_o[7].a_q;
 assign bgv_q_b = pr_o[7].b_q;
 

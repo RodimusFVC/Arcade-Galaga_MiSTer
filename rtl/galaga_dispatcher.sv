@@ -77,7 +77,7 @@ wire        z80_0_m1_n, z80_0_mreq_n, z80_0_iorq_n, z80_0_rd_n, z80_0_wr_n, z80_
 wire        z80_1_m1_n, z80_1_mreq_n, z80_1_iorq_n, z80_1_rd_n, z80_1_wr_n, z80_1_rfsh_n;
 wire        z80_2_m1_n, z80_2_mreq_n, z80_2_iorq_n, z80_2_rd_n, z80_2_wr_n, z80_2_rfsh_n;
 
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_0
+t80sv_T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_0
 (
     .RESET_n(z80_i[0].reset_n), .CLK_n(clk), .CLKEN(z80_i[0].ce), .WAIT_n(1'b1), .INT_n(z80_i[0].int_n), .NMI_n(z80_i[0].nmi_n), .BUSRQ_n(1'b1),
     .M1_n(z80_0_m1_n), .MREQ_n(z80_0_mreq_n), .IORQ_n(z80_0_iorq_n), .RD_n(z80_0_rd_n), .WR_n(z80_0_wr_n), .RFSH_n(z80_0_rfsh_n),
@@ -88,7 +88,7 @@ assign z80_o[0].a = z80_0_a;           assign z80_o[0].dout = z80_0_do;
 assign z80_o[0].m1_n = z80_0_m1_n;     assign z80_o[0].mreq_n = z80_0_mreq_n; assign z80_o[0].iorq_n = z80_0_iorq_n;
 assign z80_o[0].rd_n = z80_0_rd_n;     assign z80_o[0].wr_n = z80_0_wr_n;     assign z80_o[0].rfsh_n = z80_0_rfsh_n;
 
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_1
+t80sv_T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_1
 (
     .RESET_n(z80_i[1].reset_n), .CLK_n(clk), .CLKEN(z80_i[1].ce), .WAIT_n(1'b1), .INT_n(z80_i[1].int_n), .NMI_n(z80_i[1].nmi_n), .BUSRQ_n(1'b1),
     .M1_n(z80_1_m1_n), .MREQ_n(z80_1_mreq_n), .IORQ_n(z80_1_iorq_n), .RD_n(z80_1_rd_n), .WR_n(z80_1_wr_n), .RFSH_n(z80_1_rfsh_n),
@@ -99,7 +99,7 @@ assign z80_o[1].a = z80_1_a;           assign z80_o[1].dout = z80_1_do;
 assign z80_o[1].m1_n = z80_1_m1_n;     assign z80_o[1].mreq_n = z80_1_mreq_n; assign z80_o[1].iorq_n = z80_1_iorq_n;
 assign z80_o[1].rd_n = z80_1_rd_n;     assign z80_o[1].wr_n = z80_1_wr_n;     assign z80_o[1].rfsh_n = z80_1_rfsh_n;
 
-T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_2
+t80sv_T80se #(.Mode(0), .T2Write(0), .IOWait(1)) z80_2
 (
     .RESET_n(z80_i[2].reset_n), .CLK_n(clk), .CLKEN(z80_i[2].ce), .WAIT_n(1'b1), .INT_n(z80_i[2].int_n), .NMI_n(z80_i[2].nmi_n), .BUSRQ_n(1'b1),
     .M1_n(z80_2_m1_n), .MREQ_n(z80_2_mreq_n), .IORQ_n(z80_2_iorq_n), .RD_n(z80_2_rd_n), .WR_n(z80_2_wr_n), .RFSH_n(z80_2_rfsh_n),

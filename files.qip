@@ -8,24 +8,24 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/boards/galaga/galaga_cpu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/boards/galaga/galaga_video.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/boards/xevious/xevious_video.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/boards/bosco/bosco_video.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_52xx_snd.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_52xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_50xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_05xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_52xx_snd/namco_52xx_snd.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_52xx/namco_52xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_50xx/namco_50xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_05xx/namco_05xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/artwork.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/art_resample.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/png_decode.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/art/inflate.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_06xx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_51xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_53xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_54xx.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_54xx_snd.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/namco/namco_wsg3.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/mb88_sv/mb88_core.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/mb88_sv/mb88.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_53xx/namco_53xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_54xx/namco_54xx.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_54xx_snd/namco_54xx_snd.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/namco_wsg3/namco_wsg3.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/mb88/mb88_core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/mb88/mb88.sv
 
-set_global_assignment -name QIP_FILE rtl/cpu/T80/T80.qip
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rodimus/t80sv/t80sv_all.sv
 
 set_global_assignment -name VERILOG_FILE rtl/mister_custom/pause.v
 set_global_assignment -name VERILOG_FILE rtl/mister_custom/hiscore.v

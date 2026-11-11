@@ -1,0 +1,83 @@
+Copyright (C) 2026 Rodimus
+
+t80sv: SystemVerilog translation of the T80 Z80 core (SystemVerilog translation; Phoenix 8080 / 8085 additions by Rodimus).
+
+Upstream attribution
+--------------------
+  T80 (VHDL): Copyright (c) 2001-2002 Daniel Wallner (jesus@opencores.org); T80(b) MikeJ (March 2005), TobiFlex, Sean Riddle;
+  T80(c) Copyright (c) 2018 Sorgelig (MiSTer-devel); T80a bus timing by Fabio Belavenuto and Charlie Ingley;
+  T80pa top level by Sorgelig. License: Wallner's BSD-style license, reproduced below.
+
+The Rodimus translation and additions are distributed under the same terms. The notice and disclaimer must stay in
+the source files (they do) and be reproduced in the documentation of synthesized-form redistributions.
+
+T80 license (verbatim from T80.vhd, lines 1-60, comment markers removed)
+========================================================================
+
+------------------------------------------------------------------------------
+****
+T80(c) core. Attempt to finish all undocumented features and provide
+             accurate timings.
+Version 350.
+Copyright (c) 2018 Sorgelig
+ Test passed: ZEXDOC, ZEXALL, Z80Full(*), Z80memptr
+ (*) Currently only SCF and CCF instructions aren't passed X/Y flags check as
+     correct implementation is still unclear.
+
+****
+T80(b) core. In an effort to merge and maintain bug fixes ....
+
+Ver 303 add undocumented DDCB and FDCB opcodes by TobiFlex 20.04.2010
+Ver 301 parity flag is just parity for 8080, also overflow for Z80, by Sean Riddle
+Ver 300 started tidyup.
+
+MikeJ March 2005
+Latest version from www.fpgaarcade.com (original www.opencores.org)
+
+****
+Z80 compatible microprocessor core
+
+Version : 0250
+Copyright (c) 2001-2002 Daniel Wallner (jesus@opencores.org)
+All rights reserved
+
+Redistribution and use in source and synthezised forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+Redistributions in synthesized form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+Neither the name of the author nor the names of other contributors may
+be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+Please report bugs to the author, but before you do so, please
+make sure that this is not a derivative work and that
+you have the latest version of this file.
+
+The latest version of this file can be found at:
+     http://www.opencores.org/cvsweb.shtml/t80/
+
+
+Attribution / licence notice
+----------------------------
+The attribution and licence terms in this file are our best reading of the upstream sources. Where an upstream gives
+no licence (or its terms are unclear), the code is offered under whatever terms that upstream carries. If anything
+here is wrong, incomplete or not what an author intended, please contact the maintainer (open an issue on this
+repository) and it will be corrected promptly.

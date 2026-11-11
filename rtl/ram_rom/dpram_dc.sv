@@ -3,9 +3,6 @@
 //  dpram_dc: true dual-port, dual-clock block RAM (M10K)
 //  Drop-in replacement for the dpram_dc.vhd wrapper used across the MiSTer
 //  arcade cores: same generics/ports/defaults, same altsyncram settings.
-//  DPRAMDC-2026-10-24: byteena_a/b added, VHDL port defaults added, width_a < 8
-//  supported, outdata_reg_b honoured, Verilator model brought up to the same
-//  behaviour. Old (no byteena, width_a >= 8 only) version is kept in comments.
 //
 //  Port defaults (VHDL: ":= ..."): an unconnected input reads
 //     address_b, data_a, data_b, wren_a, wren_b = 0 ; byteena_a/b = all ones.
@@ -17,15 +14,9 @@
 //  width_a < 8: byteena_a/b exist (1 bit, ignored) and are NOT connected to
 //  altsyncram, which gets width_byteena_a/b = 1: the form Quartus' own MegaWizard
 //  emits for a RAM without byte enables. Writes are always full word.
-//  DPRAMDC-NARROW-2026-10-24: was width_byteena = width_a/8 = 0 (as the VHDL), which
-//  Quartus 17.0 rejects in altsyncram.tdf (Error 287087, negative range); the VHDL
-//  dpram_dc cannot build below 8 bits at all (vault: dpram_dc narrower than 8 bits).
+// Quartus 17.0 rejects width_byteena = width_a/8 = 0 in altsyncram.tdf (Error 287087), so below 8 bits it is 1.
 //
-//  Sim model (Verilator): write-during-read on the same port = NEW_DATA for the
-//  enabled bytes; the disabled bytes (undefined in hardware for
-//  NEW_DATA_NO_NBE_READ) read the old memory contents. Cross-port same-address
-//  read/write is undefined in hardware for different clocks; the model gives
-//  the older/atomic value in event order and must not be relied on.
+// Cross-port same-address read / write is undefined in hardware for different clocks; the model must not be relied on.
 //
 //============================================================================
 
@@ -34,7 +25,7 @@ module dpram_dc #(
     parameter widthad_a     = 8,
     parameter width_a       = 8,
     parameter outdata_reg_a = "UNREGISTERED",
-    parameter outdata_reg_b = "UNREGISTERED"     // DPRAMDC-2026-10-24: honoured now (was: unused, B followed outdata_reg_a)
+    parameter outdata_reg_b = "UNREGISTERED"
 )
 (
     input  tri0 [widthad_a-1:0] address_a,         // no default in the VHDL; tri0 only so lint is quiet
@@ -50,17 +41,6 @@ module dpram_dc #(
     output [width_a-1:0]        q_a,
     output [width_a-1:0]        q_b
 );
-// DPRAMDC-2026-10-24 original port list (no defaults, no byteena):
-//    input  [widthad_a-1:0] address_a,
-//    input  [widthad_a-1:0] address_b,
-//    input                  clock_a,
-//    input                  clock_b,
-//    input  [width_a-1:0]   data_a,
-//    input  [width_a-1:0]   data_b,
-//    input                  wren_a,
-//    input                  wren_b,
-//    output [width_a-1:0]   q_a,
-//    output [width_a-1:0]   q_b
 
 localparam BEW = (width_a < 8) ? 1 : (width_a/8);   // byteena port width (VHDL: width_a/8; 0 -> 1 here)
 localparam BS  = width_a / BEW;                      // bits per enable (width_a<8: whole word)
@@ -91,19 +71,6 @@ endfunction
 wire [width_a-1:0] ma = bmask(byteena_a);
 wire [width_a-1:0] mb = bmask(byteena_b);
 
-// DPRAMDC-2026-10-24: original model, full-word writes only, B output followed outdata_reg_a
-// always @(posedge clock_a) begin
-//     if (wren_a) mem[address_a] <= data_a;
-//     qa_r <= wren_a ? data_a : mem[address_a];
-//     qa_o <= qa_r;
-// end
-// always @(posedge clock_b) begin
-//     if (wren_b) mem[address_b] <= data_b;
-//     qb_r <= wren_b ? data_b : mem[address_b];
-//     qb_o <= qb_r;
-// end
-// assign q_a = (outdata_reg_a == "UNREGISTERED") ? qa_r : qa_o;
-// assign q_b = (outdata_reg_a == "UNREGISTERED") ? qb_r : qb_o;
 
 wire [width_a-1:0] wa_new = (mem[address_a] & ~ma) | (data_a & ma);
 wire [width_a-1:0] wb_new = (mem[address_b] & ~mb) | (data_b & mb);
@@ -133,7 +100,6 @@ assign q_b = ORB_REG ? qb_o : qb_r;
 
 // Same generics as dpram_dc.vhd for every width. Only the byteena port connection
 // is conditional: width_a < 8 leaves it off (null-range port in the VHDL).
-// DPRAMDC-2026-10-24: .outdata_reg_b(outdata_reg_a) in the old file / 411ee0a4 VHDL; now outdata_reg_b (70e1e8b5 VHDL).
 generate
 if (width_a >= 8) begin : g_be
 altsyncram #(
@@ -176,7 +142,6 @@ altsyncram #(
     .q_b(q_b),
     .byteena_a(byteena_a),
     .byteena_b(byteena_b),
-    // DPRAMDC-2026-10-24 old: .byteena_a({(width_a/8){1'b1}}), .byteena_b({(width_a/8){1'b1}}),
     .aclr0(1'b0),
     .aclr1(1'b0),
     .addressstall_a(1'b0),
@@ -191,7 +156,6 @@ altsyncram #(
 );
 end else begin : g_nobe
 // width_a < 8: width_byteena = 1 (MegaWizard form); byteena ports not connected.
-// DPRAMDC-NARROW-2026-10-24 old comment: generics identical to the VHDL (width_byteena = 0); byteena ports not connected.
 altsyncram #(
     .address_reg_b("CLOCK1"),
     .clock_enable_input_a("BYPASS"),
@@ -216,7 +180,6 @@ altsyncram #(
     .widthad_b(widthad_a),
     .width_a(width_a),
     .width_b(width_a),
-    // DPRAMDC-NARROW-2026-10-24 old: .width_byteena_a(width_a/8), .width_byteena_b(width_a/8),
     .width_byteena_a(1),
     .width_byteena_b(1),
     .wrcontrol_wraddress_reg_b("CLOCK1")

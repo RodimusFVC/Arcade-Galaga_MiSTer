@@ -1,11 +1,11 @@
 //============================================================================
 //
-//  MAME artwork (backdrop / overlay / bezel) for MiSTer arcade cores
+// Artwork (backdrop / overlay / bezel) for MiSTer arcade cores
 //  Copyright (C) 2026 Rodimus
 //
 //  ioctl index IDX = [2048-byte layout table from gen_mra][marker "AWI"+id][PNG]... (PNGs straight from the
-//  MAME artwork zip). The PNGs are stored in DDR3, then the selected view is decoded (png_decode), scaled
-//  (art_resample) and blended in MAME's legacy layer order into a canvas plane S of {Q, M} words:
+// artwork zip). The PNGs are stored in DDR3, then the selected view is decoded (png_decode), scaled
+// (art_resample) and blended in legacy layer order into a canvas plane S of {Q, M} words:
 //  final pixel = clamp(Q + game * M / 255) (Q = everything added on top, M = overlay / bezel factor).
 //  HDMI: S + the game -> triple-buffered 32bpp framebuffer (canvas size). Analog / direct video: S
 //  resampled to the native resolution (plane N), applied to the game pixel by pixel (one pixel of delay).
@@ -156,7 +156,7 @@ wire  [7:0] hdr_q;
 dpram_dc #(.widthad_a(11)) hdr
 (
     .clock_a(clk), .address_a(ioctl_addr[10:0]), .data_a(ioctl_dout), .wren_a(hdr_wr), .q_a(),
-    .clock_b(clk), .address_b(hdr_ra), .data_b(8'd0), .wren_b(1'b0), .q_b(hdr_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(hdr_ra), .data_b(8'd0), .wren_b(1'b0), .q_b(hdr_q)
 );
 
 reg  [63:0] bw_acc, bw_word;
@@ -231,7 +231,7 @@ wire  [4:0] ring_ra = r_rp[4:0];   // next word to read, presented ahead
 dpram_dc #(.widthad_a(5), .width_a(64)) rring
 (
     .clock_a(clk), .address_a(5'(r_base + ebeat[5:0])), .data_a(DDRAM_DOUT), .wren_a(e_rd[4]), .q_a(),
-    .clock_b(clk), .address_b(ring_ra), .data_b(64'd0), .wren_b(1'b0), .q_b(ring_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(ring_ra), .data_b(64'd0), .wren_b(1'b0), .q_b(ring_q)
 );
 
 reg  [11:0] v_cw, v_ch, v_sx, v_sy, v_sw, v_sh, v_nw, v_nh;   // view geometry (as drawn: after view rotation)
@@ -314,7 +314,7 @@ png_decode png
 );
 
 // two stages: alpha x colour alpha (or mask luminance), then colour x alpha (mask: luminance x colour alpha,
-// on the red multiplier: MAME scales an alphafile by the item's colour alpha)
+// on the red multiplier: an alphafile is scaled by the item's colour alpha)
 reg         pm1_valid = 1'b0;
 reg  [31:0] pm1_px;
 wire        pm2_free = !pm_valid || res_in_ready;
@@ -362,6 +362,7 @@ reg         bl_go = 1'b0, bl_abort = 1'b0;
 reg         bl_done = 1'b1;
 reg         bl_mask;                 // use the S mask byte as alpha
 reg         bl_nplane;
+reg         bl_flipy = 1'b0;         // layer flipped vertically (layout rotate 180 / flipy): source row r -> rect row H - 1 - r
 reg   [1:0] bl_rot = 2'd0;           // view rotation: the layer is placed turned (one word per pixel), rect in table coords
 reg  signed [13:0] bl_x, bl_y;
 reg  [11:0] bl_w, bl_h, bl_cw, bl_ch;
@@ -371,7 +372,7 @@ localparam B_IDLE = 3'd0, B_POS = 3'd1, B_RD = 3'd2, B_A = 3'd3, B_B = 3'd4, B_C
 reg   [2:0] bst = B_IDLE;
 
 wire signed [13:0] b_cx = bl_x + $signed({2'b00, bp_x});
-wire signed [13:0] b_cy = bl_y + $signed({2'b00, bp_y});
+wire signed [13:0] b_cy = bl_y + $signed({2'b00, bl_flipy ? 12'(bl_h - 12'd1 - bp_y) : bp_y});
 wire        b_out = b_cx < 0 || b_cy < 0 || b_cx >= $signed({2'b00, bl_cw}) || b_cy >= $signed({2'b00, bl_ch});
 wire signed [13:0] b_end0 = bl_x + $signed({2'b00, bl_w});
 wire signed [13:0] b_end  = (b_end0 < $signed({2'b00, bl_cw})) ? b_end0 : $signed({2'b00, bl_cw});
@@ -389,7 +390,7 @@ reg         bc_we;
 dpram_dc #(.widthad_a(6), .width_a(64)) bcbuf
 (
     .clock_a(clk), .address_a(e_rd[3] ? ebeat[5:0] : bc_wa[5:0]), .data_a(e_rd[3] ? DDRAM_DOUT : bc_wd), .wren_a(e_rd[3] | bc_we), .q_a(),
-    .clock_b(clk), .address_b(bst == B_WR ? wb_nxt[5:0] : b_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(bc_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(bst == B_WR ? wb_nxt[5:0] : b_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(bc_q)
 );
 assign b_wdata = fill ? S_INIT : bc_q;
 assign res_ready  = (bst == B_POS && !fill && b_out) || bst == B_C;
@@ -465,7 +466,7 @@ function [7:0] mulf(input [7:0] s, input [7:0] a);   // overlay factor: lerp(whi
 endfunction
 
 // =================================================================== game capture (32-line ring) + native composite
-// 32 lines: at 40 MHz with a slow DDR3 the compositor trails the raster by ~20 lines (sim, 2026-10-14)
+// 32 lines: at 40 MHz with a slow DDR3 the compositor trails the raster by ~20 lines
 
 reg  [8:0] gx_c = 9'd0, gy_c = 9'd0;
 reg        old_hbl = 1'b0, old_vbl = 1'b0;
@@ -493,7 +494,7 @@ dpram_dc #(.widthad_a(14), .width_a(WW)) gring
 (
     .clock_a(clk), .address_a(rot ? {cap_buf, cap_i[15:3]} : {gy_w, gx_c[8:0]}),
     .data_a(rot ? (cap_put ? {cap_code, cap_acc[WW-CB-1:0]} : cap_acc) : {{(WW-24){1'b0}}, rgb_in}), .wren_a(cap_wr), .q_a(),
-    .clock_b(clk), .address_b(gr_ra), .data_b({WW{1'b0}}), .wren_b(1'b0), .q_b(gr_qw)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(gr_ra), .data_b({WW{1'b0}}), .wren_b(1'b0), .q_b(gr_qw)
 );
 reg           cp_rbuf;               // buffer the compositor reads (the last whole frame)
 wire [CB-1:0] gr_code = gr_qw[CB * gr_sub +: CB];
@@ -541,7 +542,7 @@ end else begin : map_hash
     dpram_dc #(.widthad_a(HB), .width_a(4 * SW)) ctab
     (
         .clock_a(clk), .address_a(clr ? clr_a : t_wa), .data_a(clr ? '0 : t_wd), .wren_a(clr | t_we), .q_a(),
-        .clock_b(clk), .address_b(m_h), .data_b({(4 * SW){1'b0}}), .wren_b(1'b0), .q_b(t_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+        .clock_b(clk), .address_b(m_h), .data_b({(4 * SW){1'b0}}), .wren_b(1'b0), .q_b(t_q)
     );
     reg   [3:0] s_hit, s_free;
     reg [CB-1:0] s_code;             // code of the hit slot (slots hold unique colours: OR of the hits)
@@ -562,7 +563,7 @@ end else begin : map_hash
     dpram_dc #(.widthad_a(CB + 1), .width_a(24)) cpal
     (
         .clock_a(clk), .address_a({cap_buf, p_wa}), .data_a(m_rgb), .wren_a(p_we), .q_a(),
-        .clock_b(clk), .address_b({cp_rbuf, gr_code}), .data_b(24'd0), .wren_b(1'b0), .q_b(p_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+        .clock_b(clk), .address_b({cp_rbuf, gr_code}), .data_b(24'd0), .wren_b(1'b0), .q_b(p_q)
     );
     always @* pal2 = p_q;
     assign cap_put  = m_put;
@@ -596,7 +597,7 @@ reg         nb_half;
 dpram_dc #(.widthad_a(10), .width_a(64)) nbuf
 (
     .clock_a(clk), .address_a({nb_half, 9'(nb_x + {1'b0, ebeat})}), .data_a(DDRAM_DOUT), .wren_a(e_rd[0]), .q_a(),
-    .clock_b(clk), .address_b({vblank_in ? 1'b0 : gy_c[0], crt_flip ? 9'(v_nw - 12'd1 - {3'd0, gx_c}) : gx_c[8:0]}), .data_b(64'd0), .wren_b(1'b0), .q_b(nb_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b({vblank_in ? 1'b0 : gy_c[0], crt_flip ? 9'(v_nw - 12'd1 - {3'd0, gx_c}) : gx_c[8:0]}), .data_b(64'd0), .wren_b(1'b0), .q_b(nb_q)
 );
 
 reg  run = 1'b0;
@@ -700,13 +701,13 @@ wire [11:0] fb_x   = fbf ? v_cw - cp_x - {5'd0, cp_n} : cp_x;
 dpram_dc #(.widthad_a(6), .width_a(64)) ccbuf
 (
     .clock_a(clk), .address_a(ebeat[5:0]), .data_a(DDRAM_DOUT), .wren_a(e_rd[1]), .q_a(),
-    .clock_b(clk), .address_b(cp_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cc_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(cp_i[5:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cc_q)
 );
 wire [63:0] cw_q;
 dpram_dc #(.widthad_a(5), .width_a(64)) cwbuf
 (
     .clock_a(clk), .address_a(cw_a), .data_a(cw_d), .wren_a(cw_we), .q_a(),
-    .clock_b(clk), .address_b(wb_nxt[4:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cw_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(wb_nxt[4:0]), .data_b(64'd0), .wren_b(1'b0), .q_b(cw_q)
 );
 assign k_wdata = cw_q;
 // rotated: frame index of the game pixel (picture unflipped; the board rotates it 180 for CRT Flip)
@@ -975,7 +976,7 @@ always @(posedge clk) begin
             end
             k_x0 <= u_sx; k_y0 <= u_sy; k_x1 <= u_sx + u_sw; k_y1 <= u_sy + u_sh;
             // clear S (canvas as drawn)
-            l_op <= 3'd7; l_rect <= 1'b0; bl_nplane <= 1'b0; bl_rot <= 2'd0; bl_x <= 14'sd0; bl_y <= 14'sd0;
+            l_op <= 3'd7; l_rect <= 1'b0; bl_nplane <= 1'b0; bl_rot <= 2'd0; bl_flipy <= 1'b0; bl_x <= 14'sd0; bl_y <= 14'sd0;
             if (vw_rot == 2'd0) begin bl_w <= u_cw; bl_h <= u_ch; bl_cw <= u_cw; bl_ch <= u_ch; end
             else begin bl_w <= u_ch; bl_h <= u_cw; bl_cw <= u_ch; bl_ch <= u_cw; end
             bl_go <= 1'b1; qst <= Q_CLEAR;
@@ -1000,7 +1001,7 @@ always @(posedge clk) begin
             l_op <= rec[0][2:0]; l_ca <= rec[3];
             l_rect <= rec[2][6];             // rect layer: colour {byte 1, byte 12, byte 13}
             rect_px <= {div255(rec[1] * rec[3]), div255(rec[12] * rec[3]), div255(rec[13] * rec[3]), rec[3]};
-            bl_mask <= rec[2][1]; res_flip <= rec[2][0];
+            bl_mask <= rec[2][1]; res_flip <= rec[2][0]; bl_flipy <= rec[2][7];
             bl_x <= lr_x[13:0]; bl_y <= lr_y[13:0];
             bl_w <= lr_w; bl_h <= lr_h; res_dw <= lr_w; res_dh <= lr_h;
             bl_cw <= u_cw; bl_ch <= u_ch; bl_nplane <= 1'b0; bl_rot <= vw_rot;
@@ -1030,7 +1031,7 @@ always @(posedge clk) begin
         Q_NAT: begin                                        // S screen rect -> N plane (Q pass, then M pass)
             rd_smode <= 1'b1; rd_mq <= n_pass; l_rect <= 1'b0;
             l_op <= n_pass ? 3'd6 : 3'd5; bl_mask <= 1'b0; res_flip <= 1'b0;
-            bl_nplane <= 1'b1; bl_rot <= 2'd0; bl_x <= 14'sd0; bl_y <= 14'sd0;
+            bl_nplane <= 1'b1; bl_rot <= 2'd0; bl_flipy <= 1'b0; bl_x <= 14'sd0; bl_y <= 14'sd0;
             bl_w <= v_nw; bl_h <= v_nh; bl_cw <= v_nw; bl_ch <= v_nh; res_dw <= v_nw; res_dh <= v_nh;
             rd_go <= 1'b1; res_go <= 1'b1; bl_go <= 1'b1;
             qst <= Q_NRUN;

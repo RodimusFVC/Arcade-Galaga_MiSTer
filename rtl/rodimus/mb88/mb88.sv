@@ -1,3 +1,14 @@
+//  Copyright (C) 2026 Rodimus
+//  SystemVerilog conversion of Dar's mb88.vhd (darfpga@aol.fr, http://darfpga.blogspot.fr; v0.3, 28/02/2017),
+//  merging the Galaga, Bosconian and Xevious copies, with many fixes by Rodimus.
+//  Behaviour checked against MAME src/devices/cpu/mb88xx/mb88xx.cpp
+//  (license:BSD-3-Clause, copyright-holders: Ernesto Corvi).
+//  Dar's terms, which carry over to this derivative:
+//    Educational use only
+//    Do not redistribute synthetized file with roms
+//    Do not redistribute roms whatever the form
+//    Use at your own risk
+//  This wrapper reproduces the port list of Dar's mb88 entity (darfpga / Xevious copy).
 // ============================================================================
 //  MB88-2026-10-24: FLEET MASTER, md5-identical in every MB88 core; master home is
 //  Arcade-Galaga_MiSTer/rtl/cpu/mb88_sv/. Lineages merged and per-core settings: see mb88_core.sv.

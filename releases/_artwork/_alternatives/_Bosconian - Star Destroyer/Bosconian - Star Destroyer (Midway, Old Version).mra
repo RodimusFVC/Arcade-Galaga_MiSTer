@@ -25,7 +25,7 @@
     <joystick>8-way</joystick>
     <special_controls></special_controls>
     <num_buttons>1</num_buttons>
-    <buttons names="Fire,Not Used,Not Used,Not Used,Coin,Start 1P,Start 2P,Pause,Not Used,Not Used,Not Used" default="A,B,X,Y,Select,Start,R,L"/>
+    <buttons names="Fire,-,-,-,Coin,Start 1P,Start 2P,Pause,-,-,-" default="A,Select,Start,R,L"/>
 
     <switches default="FF,FF,EF,A7">
         <dip name="Service Mode" bits="15" ids="Off,On" values="1,0"/>
@@ -40,7 +40,7 @@
         <dip name="Lives" bits="30,31" ids="1,2,3,5"/>
     </switches>
 
-    <!-- Index 0: CPUs 0x00000/0x08000/0x0C000, gfx 0x10000, PROMs 0x22000, waveform 0x23000, MCUs 0x2C000 -->
+    <!-- Index 0: ROM -->
     <rom index="0" md5="none" zip="boscomdo.zip|bosco.zip|namco50.zip|namco51.zip|namco52.zip|namco54.zip">
         <part crc="db6128b0" name="2300.3n"/>
         <part crc="86907614" name="2400.3m"/>
@@ -76,7 +76,7 @@
         <part crc="ee7357e0" name="54xx.bin"/>
     </rom>
 
-    <!-- Index 1: board variant, flags, input map (see Arcade-Galaga.sv) -->
+    <!-- Index 1: Config -->
     <rom index="1">
         <part>
             07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
@@ -85,7 +85,7 @@
         </part>
     </rom>
 
-    <!-- Index 3: hiscore config (MAME hiscore.dat), index 4: saved scores -->
+    <!-- Index 3: Hiscore -->
     <rom index="3" md5="none">
         <part>
             30 D1 F0 09 00 FF 00 02 00 02 00 01 11 11 00 00
@@ -95,11 +95,11 @@
             00 00 80 60 00 08 00 02
         </part>
     </rom>
+    <!-- Index 4: NVRAM -->
     <rom index="4"></rom>
     <nvram index="4" size="43"></nvram>
 
-    <!-- Index 5: MAME artwork, layout table (from default.lay) + PNGs from the artwork zip, as-is -->
-    <!-- OSD Artwork: View 1 = Upright Artwork, View 2 = NMVA Artwork, View 3 = NMVA Artwork 4:3 -->
+    <!-- Index 5: Artwork -->
     <rom index="5" md5="none" zip="/mame-artwork/bosco.zip">
         <part>
             41 57 03 00 05 00 20 01 E0 00 00 00 00 00 00 00 F2 02 96 02 76 00 A0 00 00 02 80 01 00 5A 01 00

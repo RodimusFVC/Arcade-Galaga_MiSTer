@@ -3,8 +3,8 @@
 //  Namco Galaga / Bosconian / Xevious / Dig Dug hardware for MiSTer
 //  Copyright (C) 2026 Rodimus
 //
-//  Built from MAME's galaga.cpp driver (Nicola Salmoria), with reference to
-//  Dar's (darfpga) Galaga core and the MiSTer arcade framework by Sorgelig
+// Based on MAME galaga.cpp (Nicola Salmoria, BSD-3-Clause)
+// Credits: Dar's (darfpga) Galaga core and the MiSTer arcade framework by Sorgelig
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a
 //  copy of this software and associated documentation files (the "Software"),
@@ -134,7 +134,7 @@ localparam CONF_STR = {
 	"DIP;",
 	"-;",
 	"R0,Reset;",
-	"J1,Btn 1,Btn 2,Btn 3,Btn 4,Coin,Start 1P,Start 2P,Pause,Btn 5,Btn 6,Rack Test;",
+	"J1,Button 1,Button 2,Button 3,Button 4,Coin,Start 1P,Start 2P,Pause,Button 5,Button 6,Rack Test;",
 	"jn,A,B,X,Y,Select,Start,R,L;",
 	"V,v",`BUILD_DATE
 };

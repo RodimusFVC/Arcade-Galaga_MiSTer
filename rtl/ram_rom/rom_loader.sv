@@ -1,7 +1,7 @@
 //============================================================================
 //
 //  Galaga / Bosconian / Xevious / Dig Dug ROM loader
-//  ROM layout matched to MAME galaga.cpp regions
+// Based on MAME galaga.cpp (Nicola Salmoria, BSD-3-Clause)
 //
 //============================================================================
 

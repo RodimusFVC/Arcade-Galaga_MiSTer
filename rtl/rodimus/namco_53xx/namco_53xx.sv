@@ -1,4 +1,6 @@
-//  Based on MAME namco53.cpp (Aaron Giles, BSD-3-Clause)
+//  SPDX-License-Identifier: BSD-3-Clause
+//  Copyright (C) 2026 Rodimus
+//  Based on MAME src/mame/namco/namco53.cpp (license:BSD-3-Clause, copyright-holders: Aaron Giles)
 `default_nettype none
 
 module namco_53xx

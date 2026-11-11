@@ -1,0 +1,66 @@
+Copyright (C) 2026 Rodimus
+
+mb88: Fujitsu MB88xx 4-bit MCU core (MB8841/8843 family): mb88_core.sv and the mb88.sv wrapper.
+
+NOT AN OPEN-SOURCE LICENSE.
+These files are a SystemVerilog conversion of Dar's mb88.vhd (darfpga@aol.fr, http://darfpga.blogspot.fr; v0.3,
+28/02/2017), merging the Galaga, Bosconian and Xevious copies, with many fixes by Rodimus. Dar's terms, verbatim:
+
+    Educational use only
+    Do not redistribute synthetized file with roms
+    Do not redistribute roms whatever the form
+    Use at your own risk
+
+These are not open-source terms. The Rodimus changes are distributed under the same terms: Rodimus cannot grant
+BSD (or any other license) over a derivative of Dar's work, and "educational use only" arguably excludes a public
+repository of general-use RTL.
+
+UNDECIDED: the author is still deciding between (a) asking Dar for a standard license in writing, (b) publishing with
+Dar's terms verbatim, or (c) leaving mb88 out / rewriting it clean-room from MAME mb88xx.cpp. Do not rely on this folder
+for any use beyond the terms above until that is settled. (The mb88_core.sv header once said "Greenfield"; the README
+and mb88.sv say conversion, and the audit could not tell which is true from the files.)
+
+MAME's src/devices/cpu/mb88xx/mb88xx.cpp (Ernesto Corvi, BSD-3-Clause) was used as the behavioural oracle (behaviour
+checked against it, not copied):
+
+    license: BSD-3-Clause, copyright-holders: Ernesto Corvi (MAME's header gives no year)
+
+BSD 3-Clause License (applies to any MAME-derived part only, NOT to Dar's code)
+---------------------------------------------------------------------
+
+Copyright (c) 2026 Rodimus
+Copyright (c) Ernesto Corvi
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Attribution / licence notice
+----------------------------
+The attribution and licence terms in this file are our best reading of the upstream sources. Where an upstream gives
+no licence (or its terms are unclear), the code is offered under whatever terms that upstream carries. If anything
+here is wrong, incomplete or not what an author intended, please contact the maintainer (open an issue on this
+repository) and it will be corrected promptly.

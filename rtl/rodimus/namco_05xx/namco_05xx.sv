@@ -1,4 +1,6 @@
-//  Based on MAME starfield_05xx.cpp (Robert Hildinger, BSD-3-Clause)
+//  SPDX-License-Identifier: BSD-3-Clause
+//  Copyright (C) 2026 Rodimus
+//  Based on MAME src/mame/namco/starfield_05xx.cpp (license:BSD-3-Clause, copyright-holders: Robert Hildinger)
 
 module namco_05xx
 (

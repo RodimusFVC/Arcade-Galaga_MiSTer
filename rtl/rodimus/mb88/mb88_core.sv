@@ -1,3 +1,13 @@
+//  Copyright (C) 2026 Rodimus
+//  SystemVerilog conversion of Dar's mb88.vhd (darfpga@aol.fr, http://darfpga.blogspot.fr; v0.3, 28/02/2017),
+//  merging the Galaga, Bosconian and Xevious copies, with many fixes by Rodimus.
+//  Behaviour checked against MAME src/devices/cpu/mb88xx/mb88xx.cpp
+//  (license:BSD-3-Clause, copyright-holders: Ernesto Corvi).
+//  Dar's terms, which carry over to this derivative:
+//    Educational use only
+//    Do not redistribute synthetized file with roms
+//    Do not redistribute roms whatever the form
+//    Use at your own risk
 // ============================================================================
 //  MB88-2026-10-24: FLEET MASTER. One mb88_core.sv / mb88.sv pair for every MB88 core
 //  (Galaga, Arabian, Kangaroo, PolePosition, Namco6809), md5-identical everywhere.
@@ -17,7 +27,7 @@
 //    ram_clr         tie 1'b0 unless the core sweeps MCU RAM at power-on (Galaga: core reset)
 // ============================================================================
 //  mb88.sv  —  Fujitsu MB88xx 4-bit MCU core (MB8841/8843 family)
-//  Greenfield, correctness-first re-implementation in SystemVerilog for Verilator
+//  Correctness-first implementation in SystemVerilog for Verilator
 //  co-sim debugging (primary target: Kangaroo MB8841 protection MCU bug).
 //
 //  Oracle: MAME cpu/mb88xx/mb88xx.cpp (opcode-for-opcode).  Verified vs mb88xx.h.

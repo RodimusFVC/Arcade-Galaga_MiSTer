@@ -111,8 +111,8 @@ reg   [9:0] lb_eng_addr;
 reg   [7:0] lb_eng_data;
 reg         lb_eng_wr;
 
-assign lb_i.a_addr = {5'd0, lb_disp_addr}; assign lb_i.a_d = 8'h00; assign lb_i.a_we = lb_disp_clr;
-assign lb_i.b_addr = {5'd0, lb_eng_addr}; assign lb_i.b_d = lb_eng_data; assign lb_i.b_we = lb_eng_wr;
+assign lb_i.a_addr = {6'd0, lb_disp_addr}; assign lb_i.a_d = 8'h00; assign lb_i.a_we = lb_disp_clr;
+assign lb_i.b_addr = {6'd0, lb_eng_addr}; assign lb_i.b_d = lb_eng_data; assign lb_i.b_we = lb_eng_wr;
 assign lb_disp_q = lb_o.a_q;
 
 wire [8:0] bx = fpx + bg_sx + 9'd20;

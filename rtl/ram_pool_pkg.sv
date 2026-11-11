@@ -7,17 +7,17 @@
 //  Only one board runs at a time, so the boards' RAMs live in a few true dual-port blocks in the core's
 //  dispatcher, each sized to its largest user. A board drives the blocks through pram_i_t (both ports read / write,
 //  as dpram_dc) and reads pram_o_t; the dispatcher picks the owner by variant. Same timing as a private dpram_dc:
-//  registered address, one clock to q. A block narrower than 32K uses the low address bits.
+//  registered address, one clock to q. A block narrower than 64K uses the low address bits.
 //
 //============================================================================
 
 package ram_pool_pkg;
 
 typedef struct packed {
-    logic [14:0] a_addr;
+    logic [15:0] a_addr;
     logic  [7:0] a_d;
     logic        a_we;
-    logic [14:0] b_addr;
+    logic [15:0] b_addr;
     logic  [7:0] b_d;
     logic        b_we;
 } pram_i_t;

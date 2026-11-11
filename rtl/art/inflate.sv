@@ -5,7 +5,7 @@
 //
 //  Byte stream in (LSB-first bit order), byte stream out, ready / valid on both sides. Canonical Huffman codes
 //  are decoded one bit per clock (count / first / base per code length), so a literal costs about its code length
-//  in clocks and a match two clocks per byte. Written for loading MAME artwork PNGs at MRA time.
+// in clocks and a match two clocks per byte.
 //
 //  Redistribution and use in source and synthesized forms, with or without modification, are permitted
 //  provided that the above copyright notice is retained. THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY.
@@ -141,7 +141,7 @@ reg   [8:0] hidx_q;                    // held while S_SYM2 waits
 dpram_dc #(.widthad_a(9), .width_a(9)) sym_ll
 (
     .clock_a(clk), .address_a(ll_wa), .data_a(ll_wd), .wren_a(ll_we), .q_a(),
-    .clock_b(clk), .address_b(st == S_SYM2 ? hidx_q : hidx), .data_b(9'd0), .wren_b(1'b0), .q_b(ll_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(st == S_SYM2 ? hidx_q : hidx), .data_b(9'd0), .wren_b(1'b0), .q_b(ll_q)
 );
 
 wire  [8:0] nsym   = (bt == 2'd0) ? 9'd19 : (bt == 2'd1) ? hlit : {3'd0, hdist};
@@ -157,7 +157,7 @@ wire  [7:0] win_d  = (st == S_SCOPY) ? bitbuf[7:0] : (st == S_SYM2) ? ll_q[7:0] 
 dpram_dc #(.widthad_a(15)) window
 (
     .clock_a(clk), .address_a(wptr), .data_a(win_d), .wren_a(win_we), .q_a(),
-    .clock_b(clk), .address_b(wptr - mdist), .data_b(8'd0), .wren_b(1'b0), .q_b(win_q)   // DPRAMSV-2026-10-25: was .data_b('0)
+    .clock_b(clk), .address_b(wptr - mdist), .data_b(8'd0), .wren_b(1'b0), .q_b(win_q)
 );
 
 always @* begin

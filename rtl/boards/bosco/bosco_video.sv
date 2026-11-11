@@ -92,12 +92,12 @@ reg   [9:0] lbs_addr, lbd_addr;
 reg   [7:0] lbs_data, lbd_data;
 reg         lbs_wr, lbd_wr;
 
-assign lbs_i.a_addr = {5'd0, lb_disp_addr}; assign lbs_i.a_d = 8'h00; assign lbs_i.a_we = lb_disp_clr;
-assign lbs_i.b_addr = {5'd0, lbs_addr}; assign lbs_i.b_d = lbs_data; assign lbs_i.b_we = lbs_wr;
+assign lbs_i.a_addr = {6'd0, lb_disp_addr}; assign lbs_i.a_d = 8'h00; assign lbs_i.a_we = lb_disp_clr;
+assign lbs_i.b_addr = {6'd0, lbs_addr}; assign lbs_i.b_d = lbs_data; assign lbs_i.b_we = lbs_wr;
 assign lbs_q = lbs_o.a_q;
 
-assign lbd_i.a_addr = {5'd0, lb_disp_addr}; assign lbd_i.a_d = 8'h00; assign lbd_i.a_we = lb_disp_clr;
-assign lbd_i.b_addr = {5'd0, lbd_addr}; assign lbd_i.b_d = lbd_data; assign lbd_i.b_we = lbd_wr;
+assign lbd_i.a_addr = {6'd0, lb_disp_addr}; assign lbd_i.a_d = 8'h00; assign lbd_i.a_we = lb_disp_clr;
+assign lbd_i.b_addr = {6'd0, lbd_addr}; assign lbd_i.b_d = lbd_data; assign lbd_i.b_we = lbd_wr;
 assign lbd_q = lbd_o.a_q;
 
 wire       star_hit;
