@@ -2,7 +2,7 @@ fde8f5a6ba0fe305252b947c737fbb76  rtl/art/art_resample.sv
 2f4e6a07bb125113307136ee2ce94943  rtl/art/artwork.sv
 9df3e9e342b5a11ef5d33fce145602c2  rtl/art/inflate.sv
 529a4b7784fcbbddd6a33dc48caa9567  rtl/art/png_decode.sv
-c0e44d6dd8053be7be60914bb89b1c67  rtl/chip_pool_pkg.sv
+37a3086a5c58c6dea7e8bd03843cd303  rtl/chip_pool_pkg.sv
 90c86afff5d538e18fe2494694a598f1  rtl/mister_custom/controllers.sv
 bab2fb9019c45977cd047d2cd94bd7ea  rtl/mister_custom/hiscore.v
 895850debf17ba33e5625674ed1c6141  rtl/mister_custom/pause.v

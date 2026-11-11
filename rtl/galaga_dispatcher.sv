@@ -44,17 +44,9 @@ module galaga_dispatcher
 
 wire v_dd = variant == 8'd3 || variant == 8'd4;
 
-wire main_cs, sub_cs, sub2_cs, gfx1_cs, sub3_cs, gfx2_cs, gfx3_cs, prom_cs, wave_cs, gfx4_cs, speech_cs;
-wire mcu50_cs, mcu51_cs, mcu52_cs, mcu53_cs, mcu54_cs;
-
-selector rom_selector
-(
-    .ioctl_addr(ioctl_addr),
-    .main_cs(main_cs), .sub_cs(sub_cs), .sub2_cs(sub2_cs), .gfx1_cs(gfx1_cs), .sub3_cs(sub3_cs),
-    .gfx2_cs(gfx2_cs), .gfx3_cs(gfx3_cs), .prom_cs(prom_cs), .wave_cs(wave_cs), .gfx4_cs(gfx4_cs),
-    .speech_cs(speech_cs), .mcu50_cs(mcu50_cs), .mcu51_cs(mcu51_cs), .mcu52_cs(mcu52_cs), .mcu53_cs(mcu53_cs),
-    .mcu54_cs(mcu54_cs)
-);
+// ioctl index-0 region selects (decode in Shared ROM blocks)
+logic main_cs, sub_cs, sub2_cs, gfx1_cs, sub3_cs, gfx2_cs, gfx3_cs, prom_cs, wave_cs, gfx4_cs, speech_cs;
+logic mcu50_cs, mcu51_cs, mcu52_cs, mcu53_cs, mcu54_cs;
 
 wire        gfx1_wr  = ioctl_wr0 & gfx1_cs;
 wire        gfx2_wr  = ioctl_wr0 & gfx2_cs;
@@ -273,6 +265,44 @@ namco_54xx_snd #(.BOARD(0)) n54snd_0
 );
 
 /////////////////////////////  Shared ROM blocks  /////////////////////////////
+
+// ioctl index 0 (MRA), all images stored exactly as dumped; index 1 = game, flags and input map; 3 / 4 = hiscore / NVRAM
+//   0x00000 - 0x07FFF  "maincpu"   (program at 0x0000-0x3FFF)
+//   0x08000 - 0x0BFFF  "sub"
+//   0x0C000 - 0x0FFFF  "sub2"
+//   0x10000 - 0x11FFF  "gfx1"      characters
+//   0x12000 - 0x12FFF  "sub3"      bootleg I/O CPU
+//   0x14000 - 0x17FFF  "gfx2"      sprites
+//   0x18000 - 0x21FFF  "gfx3"      Bosconian radar dots / Xevious sprites / Dig Dug playfield chars
+//   0x22000 - 0x22FFF  "proms"
+//   0x23000 - 0x231FF  "namco"     waveform PROM (0x100 timing PROM unused)
+//   0x24000 - 0x27FFF  "gfx4"      Xevious background map / Dig Dug playfield map
+//   0x28000 - 0x2AFFF  "52xx"      Bosconian speech samples
+//   0x2C000 - 0x2D7FF  MCU mask ROMs: 50xx 0x000 (2K), 51xx 0x800, 52xx 0xC00, 53xx 0x1000, 54xx 0x1400
+always_comb begin
+    {main_cs, sub_cs, sub2_cs, gfx1_cs, sub3_cs, gfx2_cs, gfx3_cs, prom_cs, wave_cs, gfx4_cs, speech_cs,
+     mcu50_cs, mcu51_cs, mcu52_cs, mcu53_cs, mcu54_cs} = '0;
+
+    if      (ioctl_addr < 25'h08000) main_cs   = 1'b1;
+    else if (ioctl_addr < 25'h0C000) sub_cs    = 1'b1;
+    else if (ioctl_addr < 25'h10000) sub2_cs   = 1'b1;
+    else if (ioctl_addr < 25'h12000) gfx1_cs   = 1'b1;
+    else if (ioctl_addr < 25'h13000) sub3_cs   = 1'b1;
+    else if (ioctl_addr < 25'h14000) ;
+    else if (ioctl_addr < 25'h18000) gfx2_cs   = 1'b1;
+    else if (ioctl_addr < 25'h22000) gfx3_cs   = 1'b1;
+    else if (ioctl_addr < 25'h23000) prom_cs   = 1'b1;
+    else if (ioctl_addr < 25'h23100) wave_cs   = 1'b1;
+    else if (ioctl_addr < 25'h24000) ;
+    else if (ioctl_addr < 25'h28000) gfx4_cs   = 1'b1;
+    else if (ioctl_addr < 25'h2B000) speech_cs = 1'b1;
+    else if (ioctl_addr < 25'h2C000) ;
+    else if (ioctl_addr < 25'h2C800) mcu50_cs  = 1'b1;
+    else if (ioctl_addr < 25'h2CC00) mcu51_cs  = 1'b1;
+    else if (ioctl_addr < 25'h2D000) mcu52_cs  = 1'b1;
+    else if (ioctl_addr < 25'h2D400) mcu53_cs  = 1'b1;
+    else if (ioctl_addr < 25'h2D800) mcu54_cs  = 1'b1;
+end
 
 wire [13:0] main_rom_a, sub_rom_a, sub2_rom_a, gfx2_rom_a, gfx4_rom_a, speech_rom_a;
 wire [12:0] gfx1_rom_a, gfx3b_rom_a;

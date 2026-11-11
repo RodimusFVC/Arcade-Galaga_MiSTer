@@ -1622,4 +1622,26 @@ typedef struct packed {
     logic  [3:0] pc_ddr;
 } mc68705p3_o_t;
 
+// Z8002 CPU (rtl/rodimus/z8002, ours). reset_n and ce are on the bus (Pole Position: one LS259 bit per CPU, two ce
+// phases). Word bus: we = write, wordacc = word access. wait_n / nmi_n / vi_n are not implemented by the core (tie
+// 1); illegal latches an illegal opcode. dbg_pc / dbg_fcw / dbg_ir / dbg_retire / dbg_regs stay unconnected
+typedef struct packed {
+    logic        reset_n;
+    logic        ce;
+    logic [15:0] din;
+    logic        wait_n;
+    logic        nmi_n;
+    logic        nvi_n;
+    logic        vi_n;
+} z8002_i_t;
+typedef struct packed {
+    logic [15:0] addr;
+    logic [15:0] dout;
+    logic        mreq;
+    logic        iorq;
+    logic        we;
+    logic        wordacc;
+    logic        illegal;
+} z8002_o_t;
+
 endpackage
