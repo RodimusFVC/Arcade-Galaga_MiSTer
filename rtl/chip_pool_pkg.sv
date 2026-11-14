@@ -15,7 +15,7 @@
 package chip_pool_pkg;
 
 
-// Z80 (T80s, Mode 0, T2Write 1, IOWait 1; WAIT_n / BUSRQ_n inactive)
+// Z80 (t80sv_T80s, Mode 0, T2Write 1, IOWait 1; WAIT_n / BUSRQ_n inactive)
 typedef struct packed {
     logic        ce;
     logic        int_n;
@@ -34,10 +34,12 @@ typedef struct packed {
     logic        rfsh_n;
 } z80_o_t;
 
-// Z80 (T80s, as z80_i_t) with RESET_n on the bus: Konami82's board watchdogs reset the main and sound CPUs
+// Z80 (t80sv_T80s, as z80_i_t) with RESET_n on the bus: Konami82's board watchdogs reset the main and sound CPUs.
+// wait_n = WAIT_n; a dispatcher connects it only on slots whose board drives it (others leave the pin open)
 typedef struct packed {
     logic        reset_n;
     logic        ce;
+    logic        wait_n;
     logic        int_n;
     logic        nmi_n;
     logic  [7:0] di;
@@ -93,7 +95,7 @@ typedef struct packed {
     logic  [9:0] sound;                 // jt49 internal A+B+C mix (registered per accumulator cycle)
 } ay_o_t;
 
-// 8035 / 8039 (T48 t8039_notri_extrom, EA low, program on pmem). Superset of every core's pins: a core that doesn't use
+// 8035 / 8039 (t48sv_t8039_notri_extrom, EA low, program on pmem). Superset of every core's pins: a core that doesn't use
 // reset_n / T0 / T1 / the port inputs / the MOVX bus ties those pins in its dispatcher and leaves the fields undriven.
 typedef struct packed {
     logic        reset_n;
@@ -119,7 +121,7 @@ typedef struct packed {
 } mcs48_o_t;
 
 // UPI-41 / 8041 (t48sv_upi41_core, every pin; clocks xtal_i / clk_i stay on the instance). reset_n is active-low
-// (T48 res_active_c = 0). pmem = program store, dmem = 64/128 x 8 data RAM (pool blocks in the dispatcher).
+// (t48sv res_active_c = 0). pmem = program store, dmem = 64/128 x 8 data RAM (pool blocks in the dispatcher).
 typedef struct packed {
     logic        reset_n;
     logic        xtal_en;
@@ -155,8 +157,8 @@ typedef struct packed {
     logic [10:0] pmem_a;
 } upi41_o_t;
 
-// Z80 (T80pa, Mode 0). Superset of every core's pins: a core without a DMA ties BUSRQ_n high in its dispatcher and leaves
-// busrq_n / busak_n undriven; inte = IFF1 (T80pa REG bit 210: the 8080's INTE pin for an 8080 board). RESET_n is on the bus:
+// Z80 (t80sv_T80pa, Mode 0). Superset of every core's pins: a core without a DMA ties BUSRQ_n high in its dispatcher and leaves
+// busrq_n / busak_n undriven; inte = IFF1 (t80sv_T80pa REG bit 210: the 8080's INTE pin for an 8080 board). RESET_n is on the bus:
 // Lady Bug / 8203 hold their CPUs in reset ~48 ms past the core reset
 typedef struct packed {
     logic        reset_n;
@@ -219,7 +221,7 @@ typedef struct packed {
 
 // ---- types added by the cores (first user in brackets) ----
 
-// Z80 (T80sed; BUSRQ_n inactive). RESET_n and WAIT_n are on the bus: Galaxian's main CPU has video RAM waits and a
+// Z80 (t80sv_T80sed; BUSRQ_n inactive). RESET_n and WAIT_n are on the bus: Galaxian's main CPU has video RAM waits and a
 // watchdog / CPU-select reset; its sound boards hold their Z80 in reset on sets that do not use them
 typedef struct packed {
     logic        reset_n;
@@ -241,7 +243,7 @@ typedef struct packed {
     logic        rfsh_n;
 } z80sed_o_t;
 
-// S2650 (s2650_cpu around sgs2650; ivec 03, flag unused). reset is on the bus: watchdog reset, held in reset on
+// S2650 (s2650sv_s2650_cpu; ivec 03, flag unused). reset is on the bus: watchdog reset, held in reset on
 // sets that do not use it
 typedef struct packed {
     logic        reset;
@@ -263,7 +265,7 @@ typedef struct packed {
     logic        intack;
 } s2650_o_t;
 
-// 6502 (stock T65, Mode 00). Enable = one CPU cycle. res_n on the bus: Punch-Out's main
+// 6502 (t65sv_T65, Mode 00). Enable = one CPU cycle. res_n on the bus: Punch-Out's main
 // latch Q3 resets the RP2A03. Verbatim copy of Arcade-Nintendo's t65_i_t / t65_o_t (its NEW types, not merged yet).
 typedef struct packed {
     logic        res_n;
@@ -278,10 +280,10 @@ typedef struct packed {
     logic [15:0] a;
     logic  [7:0] dout;
     logic        rw;                    // 1 = read
-    logic        sync;                  // opcode fetch (T65 Sync pin); every dispatcher drives it (DECO Cassette deco222 decrypt reads it)
+    logic        sync;                  // opcode fetch (Sync pin); every dispatcher drives it (DECO Cassette deco222 decrypt reads it)
 } t65_o_t;
 
-// 8039 with its external bus (T48 t8039_notri_extrom, EA low, program on pmem; T0 low, P2 inputs high): BUS / ALE /
+// 8039 with its external bus (t48sv_t8039_notri_extrom, EA low, program on pmem; T0 low, P2 inputs high): BUS / ALE /
 // WR out, T1 and P1 inputs used. reset_n is on the bus: held in reset on sets that do not use it
 typedef struct packed {
     logic        reset_n;
@@ -338,7 +340,7 @@ typedef struct packed {
     logic  [7:0] iob_out;
 } aysel_o_t;
 
-// MC6803 (rtl/cpu/m6803.sv around jt680x, 6801 microcode): expanded multiplexed mode, external ROM; on-chip
+// MC6803 (rtl/rodimus/m6803 around jt680x, 6801 microcode): expanded multiplexed mode, external ROM; on-chip
 // registers 0x00-0x1F and RAM 0x80-0xFF, everything else is an external access (x_cs). cen = crystal rate (4 x E)
 typedef struct packed {
     logic        cen;
@@ -420,7 +422,7 @@ typedef struct packed {
     logic [15:0] out;
 } tc8830f_o_t;
 
-// RP2A03 (rtl/rodimus/rp2a03): APU + glue around a pooled T65 (its t65_i / t65_o connect to a t65 slot in the dispatcher)
+// RP2A03 (rtl/rodimus/rp2a03): APU + glue around a pooled t65sv_T65 (its t65_i / t65_o connect to a t65 slot in the dispatcher)
 typedef struct packed {
     logic        reset;
     logic        ce;
@@ -542,7 +544,7 @@ typedef struct packed {
     logic        vclk;
 } jt5205_o_t;
 
-// Z80 / 8085 (T80pa, Mode 0, Phoenix core copy of rtl/cpu/T80: runtime I8080 = 8080 mode, I8085 = opcode 20 is RIM
+// Z80 / 8085 (t80sv_T80pa_phx, Mode 0: runtime I8080 = 8080 mode, I8085 = opcode 20 is RIM
 // loading RIM_D). BUSRQ_n inactive. rst = a board-driven reset pulse: every dispatcher ORs it into the CPU reset
 // (RESET_n = ~(reset | rst)); a board without one ties it 1'b0 (VIC: coin insert resets the CPU).
 typedef struct packed {
@@ -571,7 +573,7 @@ typedef struct packed {
 } z80pa85_o_t;
 
 // 8080 (t80sv_T8080se: 8080 bus with SYNC / DBIN / WR_n / INTE). reset_n is on the bus: the Space Invaders 8080 board's
-// watchdog resets its CPU. hold drives T8080se HOLD (passed to the core as BUSRQ_n): the 8080 boards tie it 0.
+// watchdog resets its CPU. hold drives t80sv_T8080se HOLD (passed to the core as BUSRQ_n): the 8080 boards tie it 0.
 typedef struct packed {
     logic        reset_n;
     logic        clken;
@@ -675,7 +677,7 @@ typedef struct packed {
     logic  [7:0] out;           // {out1, out0} 4-bit output ports (lamps, coin lockout, DIP mux select)
 } namcoio_o_t;
 
-// Z80 (T80s, Mode 0, T2Write 1, IOWait 1; BUSRQ_n inactive) with WAIT_n driven: Dragon's Lair inserts a wait state for the AY
+// Z80 (t80sv_T80s, Mode 0, T2Write 1, IOWait 1; BUSRQ_n inactive) with WAIT_n driven: Dragon's Lair inserts a wait state for the AY
 typedef struct packed {
     logic        ce;
     logic        wait_n;
@@ -1237,6 +1239,33 @@ typedef struct packed {
     logic [15:0] audio;         // signed
 } namco_wsg3_o_t;
 
+// Namco 8-voice WSG, Pole Position's (namco_wsg8; waveform PROM loaded in the dispatcher). reg_* = CPU window
+typedef struct packed {
+    logic        reset;
+    logic        sound_en;
+    logic  [5:0] reg_addr;
+    logic  [7:0] reg_din;
+    logic        reg_wr;
+} namco_wsg8_i_t;
+
+typedef struct packed {
+    logic  [7:0] reg_dout;
+    logic [15:0] audio;         // signed
+} namco_wsg8_o_t;
+
+// ADC0804 8-bit ADC (adc0804): wr starts a conversion, rd reads it, vin sampled at conversion end
+typedef struct packed {
+    logic        reset;
+    logic        wr;
+    logic        rd;
+    logic  [7:0] vin;
+} adc0804_i_t;
+
+typedef struct packed {
+    logic  [7:0] dout;
+    logic        intr_n;
+} adc0804_o_t;
+
 // Namco 52XX voice filter chain (namco_52xx_snd) and 54XX noise / discrete mixer (namco_54xx_snd; BOARD per instance)
 typedef struct packed {
     logic        reset;
@@ -1293,7 +1322,7 @@ typedef struct packed {
     logic        o_wr;
 } namco_62xx_o_t;
 
-// Intel 8257 DMA controller (rtl/cpu/i8257.sv, ours). Field names = the module's ports.
+// Intel 8257 DMA controller (rtl/rodimus/i8257, ours). Field names = the module's ports.
 typedef struct packed {
     logic        reset;
     logic        ce;
@@ -1322,7 +1351,7 @@ typedef struct packed {
     logic  [7:0] data;
 } i8257_o_t;
 
-// Zilog Z80 DMA (rtl/cpu/z80dma.sv, ours). Field names = the module's ports.
+// Zilog Z80 DMA (rtl/rodimus/z80dma, ours). Field names = the module's ports.
 typedef struct packed {
     logic        reset;
     logic        cen_p;
