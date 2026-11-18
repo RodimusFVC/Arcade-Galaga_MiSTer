@@ -472,6 +472,43 @@ typedef struct packed {
     logic  [7:0] dout;
 } sega_315_5018_o_t;
 
+// Sega 315-xxxx / 317-xxxx security CPU decryption (rtl/rodimus/sega_decrypt; chip id = that file's table, 0 = off).
+// One clocked ROM: dout is valid one clock after din / a / op.
+typedef struct packed {
+    logic  [4:0] chip;
+    logic        op;                    // opcode fetch (M1)
+    logic [15:0] a;
+    logic  [7:0] din;
+} sega_decrypt_i_t;
+
+typedef struct packed {
+    logic  [7:0] dout;
+} sega_decrypt_o_t;
+
+// Intel 8279 keyboard / display interface (rtl/rodimus/i8279). rd / wr = one clock per CPU access; ce = chip CLK
+// enable; disp_a / disp_q = a second display RAM read port (LED overlay).
+typedef struct packed {
+    logic        reset;
+    logic        ce;
+    logic        cs;
+    logic        a0;
+    logic        rd;
+    logic        wr;
+    logic  [7:0] din;
+    logic  [7:0] rl;
+    logic        shift;
+    logic        ctrl;
+    logic  [3:0] disp_a;
+} i8279_i_t;
+
+typedef struct packed {
+    logic  [7:0] dout;
+    logic  [3:0] sl;
+    logic  [7:0] disp;
+    logic        irq;
+    logic  [7:0] disp_q;
+} i8279_o_t;
+
 // TMS5110 PROM sequencer (rtl/rodimus/tms5110 tmsprom): rom_addr / rom_q go to the dispatcher's speech ROM block
 typedef struct packed {
     logic        reset;
