@@ -540,6 +540,7 @@ always_comb begin
 			case (MCycle)
 			3'd1: begin
 				Set_Addr_To = aBC;
+				SetWZ = 2'b01;             // MEMPTR = rr + 1
 			end
 			3'd2: begin
 				Read_To_Acc = 1'b1;
@@ -552,6 +553,7 @@ always_comb begin
 			case (MCycle)
 			3'd1: begin
 				Set_Addr_To = aDE;
+				SetWZ = 2'b01;             // MEMPTR = rr + 1
 			end
 			3'd2: begin
 				Read_To_Acc = 1'b1;
@@ -581,6 +583,7 @@ always_comb begin
 				end
 				3'd3: begin
 					Set_Addr_To = aZI;
+					SetWZ = 2'b01;             // LD A,(nn): MEMPTR = nn + 1
 					Inc_PC = 1'b1;
 				end
 				3'd4: begin
@@ -1632,6 +1635,7 @@ always_comb begin
 				3'd3: begin
 					Jump = 1'b1;
 					IncDec_16 = 4'b0111;
+					LDW = 1'b1;                // MEMPTR = return address
 				end
 				default: ;
 				endcase
@@ -1736,6 +1740,7 @@ always_comb begin
 					3'd3: begin
 						Jump = 1'b1;
 						IncDec_16 = 4'b0111;
+						LDW = 1'b1;                // MEMPTR = return address
 					end
 					default: ;
 					endcase
@@ -1810,6 +1815,7 @@ always_comb begin
 				3'd2: begin
 					Inc_PC = 1'b1;
 					Set_Addr_To = aIOA;
+					SetWZ = 2'b10;             // OUT (n),A: MEMPTR = A, n + 1 (no carry)
 					Set_BusB_To = 4'b0111;
 				end
 				3'd3: begin
@@ -2332,6 +2338,7 @@ always_comb begin
 			case (MCycle)
 			3'd1: begin
 				Set_Addr_To = aXY;
+				SetWZ = 2'b01;             // RLD / RRD: MEMPTR = HL + 1
 			end
 			3'd2: begin
 				Read_To_Reg = 1'b1;
@@ -2358,6 +2365,7 @@ always_comb begin
 			case (MCycle)
 			3'd1: begin
 				Set_Addr_To = aXY;
+				SetWZ = 2'b01;             // RLD / RRD: MEMPTR = HL + 1
 			end
 			3'd2: begin
 				Read_To_Reg = 1'b1;
@@ -2797,6 +2805,67 @@ assign NextIs_XY_Fetch = XY_State != 2'b00 && !XY_Ind &&
 
 assign Save_Mux = ExchangeRp ? BusB : (!Save_ALU_r ? DI_Reg : ALU_Q);
 
+//----------------------------------------------------------------------------
+// Q (Zilog Z80): SCF / CCF take flag bits 5 and 3 from (Q xor F) or A, where Q = F if the previous
+// instruction changed the flags and Q = 0 if it did not (POP AF and EX AF,AF' do not count; a prefix is
+// an instruction of its own). One bit is enough: QF = "the previous instruction wrote F", so Q xor F is 0
+// when QF = 1 and F when QF = 0. Fw collects the flag writes of the instruction in progress. An
+// instruction's last flag writes happen in T1 / T2 of the next opcode fetch (the ALU result of the last
+// M-cycle, and the block-instruction P/V, X, Y updates, while IR still holds the old opcode), so Fw passes to
+// QF at T3 of the opcode fetch, and SCF / CCF read QF at T4.
+// fw_now lists every write to F in the always_ff below except POP AF (Read_To_Reg_r 11011), EX AF,AF'
+// and DIRSet.
+//----------------------------------------------------------------------------
+logic QF, Fw, fw_now, fw_late;
+logic       BlkRep;                   // MCycle 4 of a repeating LDIR / CPIR / INIR / OTIR (and the D forms)
+logic [3:0] BTR_B;                    // INIR / OTIR family: B after the decrement (BusA at the P/V update)
+assign BlkRep = ISet == 2'b10 && IR[7:4] == 4'hB && !IR[2] && MCycle == 3'b100;
+
+// MEMPTR (WZ) +1 / -1: one shared adder. Every "WZ <= x + 1" of the T_Res address update (and the CPI / CPD
+// and block-repeat updates that override it) is x + 1 on the value selected here; the "{ACC, low + 1}" forms use
+// its low byte, and LD (nn),rr takes its second address from it. The selection follows the override order of
+// the always_ff below (CPI / CPD, then block repeat, then Set_Addr_To), so wz_sum always equals the expression
+// the selected assignment used to compute. Proven equivalent (yosys equiv_simple + equiv_induct, Modes 0 and 2)
+// to the separate adders it replaces; Quartus 17: -48 ALMs / -100 LUTs (2026-11-17).
+logic        CpiWZ;                   // CPI / CPD / CPIR / CPDR, end of the (HL) read
+logic [15:0] wz_in, wz_sum;
+assign CpiWZ = ISet == 2'b10 && IR[7:5] == 3'b101 && IR[2:0] == 3'b001 && MCycle == 3'b010;
+always_comb begin
+    if (CpiWZ)
+        wz_in = WZ;
+    else if (BlkRep && !mode[1] && IR[1])
+        wz_in = PC;
+    else case (Set_Addr_To)
+        aIOA:    wz_in = {ACC, DI_Reg};
+        aZI:     wz_in = Inc_WZ ? WZ : {DI_Reg, WZ[7:0]};
+        default: wz_in = RegBusC;     // aXY, aBC, aDE
+    endcase
+end
+assign wz_sum = wz_in + ((CpiWZ && IR[3]) ? 16'hFFFF : 16'h0001);
+assign fw_late = !(MCycle == 3'b001 && !TState[2]);            // the "MCycle > 1, or MCycle 1 TState > 3" branch
+assign fw_now  = (LDHLSP && MCycle == 3'b011 && TState == 3'd1) ||
+                 (ADDSPdd && TState == 3'd1) ||
+                 (fw_late && T_Res && (I_CPL || I_CCF || I_SCF)) ||
+                 (fw_late && ((TState == 3'd2 && I_BTR && IR[0]) || (TState == 3'd1 && I_BTR && !IR[0]))) ||
+                 (TState == 3'd3 && Special_LD[2] && !Special_LD[1]) ||
+                 ((!I_DJNZ && Save_ALU_r && ALU_Op_r[3:1] != 3'b101) || ALU_Op_r == 4'b1001) ||   // not SET / RES: F is written back unchanged
+                 (T_Res && I_INRC) ||
+                 I_BT || I_BC ||
+                 (BlkRep && T_Res);
+
+always_ff @(posedge CLK_n or posedge rst) begin
+    if (rst) begin
+        QF <= 1'b0;
+        Fw <= 1'b0;
+    end else if (ClkEn && !DIRSet) begin
+        if (MCycle == 3'b001 && TState == 3'd3) begin
+            QF <= Fw;
+            Fw <= fw_now;
+        end else if (fw_now)
+            Fw <= 1'b1;
+    end
+end
+
 // process-variable equivalents; only some bits of each are used
 /* verilator lint_off UNUSED */
 logic [15:0] DI_sext;
@@ -2841,6 +2910,7 @@ always_ff @(posedge CLK_n or posedge rst) begin
         XY_Ind <= 1'b0;
         I_RXDD <= 1'b0;
         SOD_r <= 1'b0;
+        BTR_B <= 4'h0;
     end else if (DIRSet) begin
         ACC <= DIR[7:0];
         F <= DIR[15:8];
@@ -2955,8 +3025,11 @@ always_ff @(posedge CLK_n or posedge rst) begin
                 end else begin
                     case (Set_Addr_To)
                     aXY: begin
-                        if (XY_State == 2'b00)
+                        if (XY_State == 2'b00) begin
                             A <= RegBusC;
+                            if (SetWZ == 2'b01)
+                                WZ <= wz_sum;            // RLD / RRD: HL + 1
+                        end
                         else if (NextIs_XY_Fetch)
                             A <= PC;
                         else
@@ -2970,7 +3043,10 @@ always_ff @(posedge CLK_n or posedge rst) begin
                         else
                             A[15:8] <= ACC;
                         A[7:0] <= DI_Reg;
-                        WZ <= {ACC, DI_Reg} + 16'd1;
+                        if (SetWZ == 2'b10)
+                            WZ <= {ACC, wz_sum[7:0]};    // OUT (n),A: A, n + 1
+                        else
+                            WZ <= wz_sum;                // {A, n} + 1
                     end
                     aSP: A <= SP;
                     aBC: begin
@@ -2980,30 +3056,29 @@ always_ff @(posedge CLK_n or posedge rst) begin
                         end else begin
                             A <= RegBusC;
                             if (SetWZ == 2'b01)
-                                WZ <= RegBusC + 16'd1;
-                            if (SetWZ == 2'b10) begin
-                                WZ[7:0] <= RegBusC[7:0] + 8'd1;
-                                WZ[15:8] <= ACC;
-                            end
+                                WZ <= wz_sum;            // rr + 1
+                            if (SetWZ == 2'b10)
+                                WZ <= {ACC, wz_sum[7:0]};
                         end
                     end
                     aDE: begin
                         A <= RegBusC;
-                        if (SetWZ == 2'b10) begin
-                            WZ[7:0] <= RegBusC[7:0] + 8'd1;
-                            WZ[15:8] <= ACC;
-                        end
+                        if (SetWZ == 2'b01)
+                            WZ <= wz_sum;                // LD A,(DE): DE + 1
+                        if (SetWZ == 2'b10)
+                            WZ <= {ACC, wz_sum[7:0]};
                     end
                     aZI: begin
-                        if (Inc_WZ)
-                            A <= WZ + 16'd1;
-                        else begin
+                        if (Inc_WZ) begin
+                            A <= wz_sum;                 // WZ + 1
+                            WZ <= wz_sum;                // LD (nn),rr / LD rr,(nn): MEMPTR = nn + 1
+                        end else begin
                             A[15:8] <= DI_Reg;
                             A[7:0] <= WZ[7:0];
-                            if (SetWZ == 2'b10) begin
-                                WZ[7:0] <= WZ[7:0] + 8'd1;
-                                WZ[15:8] <= ACC;
-                            end
+                            if (SetWZ == 2'b01)
+                                WZ <= wz_sum;            // LD A,(nn): nn + 1
+                            if (SetWZ == 2'b10)
+                                WZ <= {ACC, wz_sum[7:0]};
                         end
                     end
                     default: begin
@@ -3017,6 +3092,33 @@ always_ff @(posedge CLK_n or posedge rst) begin
 
                 if (SetWZ == 2'b11)
                     WZ <= ID16;
+
+                // CPI / CPD (and CPIR / CPDR when they stop): MEMPTR + 1 / - 1, at the end of the (HL) read.
+                // A repeating CPIR / CPDR then sets MEMPTR = PC + 1 in MCycle 3 (I_BC, below).
+                if (CpiWZ)
+                    WZ <= wz_sum;                // WZ - 1 (CPD) / WZ + 1 (CPI)
+
+                // A repeating block instruction (MCycle 4 only runs when it repeats; PC is back at the
+                // instruction): flag bits 5 / 3 = PC bits 13 / 11. INIR / INDR / OTIR / OTDR also change H and
+                // P/V by the carry and B, and set MEMPTR = PC + 1 (LDIR / CPIR set it in MCycle 3, below).
+                // N = bit 7 of the byte transferred, C = H = carry of the INI / OUTI sum (set in MCycle 3).
+                if (BlkRep && !mode[1]) begin
+                    F[Flag_Y] <= PC[13];
+                    F[Flag_X] <= PC[11];
+                    if (IR[1]) begin
+                        WZ <= wz_sum;                // PC + 1
+                        if (F[Flag_C]) begin
+                            if (F[Flag_N]) begin
+                                F[Flag_P] <= F[Flag_P] ^ (^(BTR_B[2:0] - 3'd1));
+                                F[Flag_H] <= BTR_B[3:0] == 4'h0;
+                            end else begin
+                                F[Flag_P] <= F[Flag_P] ^ (^(BTR_B[2:0] + 3'd1));
+                                F[Flag_H] <= BTR_B[3:0] == 4'hF;
+                            end
+                        end else
+                            F[Flag_P] <= F[Flag_P] ^ (^BTR_B[2:0]);
+                    end
+                end
 
                 Save_ALU_r <= Save_ALU;
                 ALU_Op_r <= ALU_Op;
@@ -3047,16 +3149,16 @@ always_ff @(posedge CLK_n or posedge rst) begin
                     end
                     if (I_CCF) begin
                         F[Flag_C] <= ~F[Flag_C];
-                        F[Flag_Y] <= ACC[5];
+                        F[Flag_Y] <= ACC[5] | (!mode[1] && !QF && F[Flag_Y]);   // (Q xor F) or A
                         F[Flag_H] <= F[Flag_C];
-                        F[Flag_X] <= ACC[3];
+                        F[Flag_X] <= ACC[3] | (!mode[1] && !QF && F[Flag_X]);
                         F[Flag_N] <= 1'b0;
                     end
                     if (I_SCF) begin
                         F[Flag_C] <= 1'b1;
-                        F[Flag_Y] <= ACC[5];
+                        F[Flag_Y] <= ACC[5] | (!mode[1] && !QF && F[Flag_Y]);
                         F[Flag_H] <= 1'b0;
-                        F[Flag_X] <= ACC[3];
+                        F[Flag_X] <= ACC[3] | (!mode[1] && !QF && F[Flag_X]);
                         F[Flag_N] <= 1'b0;
                     end
                 end
@@ -3067,6 +3169,7 @@ always_ff @(posedge CLK_n or posedge rst) begin
                 F[Flag_C] <= ioq_sum[8];
                 F[Flag_H] <= ioq_sum[8];
                 F[Flag_P] <= ~^ioq_par[7:0];
+                BTR_B <= BusA[3:0];
             end
 
             if (TState == 3'd2 && WAIT_n) begin
@@ -3304,8 +3407,10 @@ always_ff @(posedge CLK_n) begin
 end
 
 always_comb begin
-    if ((TState == 3'd2 || (TState == 3'd3 && MCycle == 3'b001 && IncDec_16[2])) && XY_State == 2'b00)
-        RegAddrA = {Alternate, IncDec_16[1:0]};            // 16-bit increment / decrement
+    // 16-bit increment / decrement. With DD / FD the prefix only replaces HL: INC / DEC BC, DE keep their pair.
+    if ((TState == 3'd2 || (TState == 3'd3 && MCycle == 3'b001 && IncDec_16[2])) &&
+        (XY_State == 2'b00 || !IncDec_16[1]))
+        RegAddrA = {Alternate, IncDec_16[1:0]};
     else if ((TState == 3'd2 || (TState == 3'd3 && MCycle == 3'b001 && IncDec_16[2])) && IncDec_16[1:0] == 2'b10)
         RegAddrA = {XY_State[1], 2'b11};
     else if (ExchangeDH && TState == 3'd3)
